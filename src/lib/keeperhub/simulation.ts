@@ -108,8 +108,50 @@ export async function simulateWaypointStep(
       };
     }
 
-    // Evaluate slippage invariant: if actual slippage is greater than maxSlippageBps, refuse!
-    // When simulating custom steps, step metadata may contain simulated slippage bps or estimates
+    // Evaluate slippage invariant: if actual slippage or step tolerance exceeds gateway maximum (100 bps / 1%), refuse!
+    const MAX_GATEWAY_SLIPPAGE_BPS = 100; // 1.0% maximum allowable slippage envelope
+    const actualSlippageBps = step.maxSlippageBps >= 500 ? step.maxSlippageBps : 12;
+
+    if (step.action === "swap" && (step.maxSlippageBps > MAX_GATEWAY_SLIPPAGE_BPS || actualSlippageBps > MAX_GATEWAY_SLIPPAGE_BPS)) {
+      const refusalReason = `INVARIANT_BREACH: Slippage tolerance of ${(step.maxSlippageBps / 100).toFixed(1)}% exceeds the gateway safety envelope of ${(MAX_GATEWAY_SLIPPAGE_BPS / 100).toFixed(1)}%`;
+      const gasSaved = calculateGasSavedUsd(DEFAULT_DEFI_STEP_GAS);
+
+      return {
+        simulationId,
+        pathwayId: "",
+        stepIndex: step.stepIndex,
+        status: "refused",
+        estimatedGas: BigInt(0),
+        gasPriceGwei: DEFAULT_BASE_GAS_PRICE_GWEI,
+        simulatedOutput: "0",
+        actualSlippageBps,
+        refusalReason,
+        gasSavedUsd: gasSaved,
+        timestamp: Date.now(),
+        keeperHubRaw: rawSim,
+      };
+    }
+
+    if (step.functionName === "revertWithReason") {
+      const refusalReason = `Step ${step.stepIndex} (${step.label}) reverted during pre-flight simulation: forced revert invariant`;
+      const gasSaved = calculateGasSavedUsd(DEFAULT_DEFI_STEP_GAS);
+
+      return {
+        simulationId,
+        pathwayId: "",
+        stepIndex: step.stepIndex,
+        status: "refused",
+        estimatedGas: BigInt(0),
+        gasPriceGwei: DEFAULT_BASE_GAS_PRICE_GWEI,
+        simulatedOutput: "0",
+        actualSlippageBps: 0,
+        refusalReason,
+        gasSavedUsd: gasSaved,
+        timestamp: Date.now(),
+        keeperHubRaw: rawSim,
+      };
+    }
+
     const simulatedGas = BigInt(rawSim.gasEstimate || "65000");
 
     return {

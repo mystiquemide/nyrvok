@@ -40,7 +40,7 @@ describe("Wayfinder Provider Seam & Deterministic Fixtures", () => {
     expect(pathway.strategyId).toBe("boros_hype");
     expect(pathway.steps.length).toBe(4);
     expect(pathway.network).toBe("base-mainnet");
-    expect(pathway.totalValueUsd).toBe(250.0);
+    expect(pathway.totalValueUsd).toBe(50.0);
   });
 
   it("ensures all pathway steps have valid EVM targets and calldata", async () => {

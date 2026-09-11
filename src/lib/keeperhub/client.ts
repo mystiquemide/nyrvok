@@ -147,7 +147,7 @@ export class NyrvokKeeperHubClient {
     }
   }
 
-  async executeContractCall(params: ContractCallParams): Promise<{ executionId: string; status: string }> {
+  async executeContractCall(params: ContractCallParams): Promise<{ executionId: string; status: string; transactionHash?: string; transactionLink?: string }> {
     const payload: Record<string, unknown> = {
       contractAddress: params.contractAddress,
       network: params.network || "base",
@@ -164,7 +164,7 @@ export class NyrvokKeeperHubClient {
       payload.value = params.value;
     }
 
-    return this.client.rawRequest<{ executionId: string; status: string }>("/execute/contract-call", {
+    return this.client.rawRequest<{ executionId: string; status: string; transactionHash?: string; transactionLink?: string }>("/execute/contract-call", {
       method: "POST",
       body: JSON.stringify(payload),
     });
@@ -213,7 +213,7 @@ export class NyrvokKeeperHubClient {
     }
   }
 
-  async executeTransfer(params: TransferParams): Promise<{ executionId: string; status: string }> {
+  async executeTransfer(params: TransferParams): Promise<{ executionId: string; status: string; transactionHash?: string; transactionLink?: string }> {
     const payload: Record<string, unknown> = {
       recipientAddress: params.recipientAddress,
       amount: params.amount,
@@ -223,7 +223,7 @@ export class NyrvokKeeperHubClient {
       payload.tokenAddress = params.tokenAddress;
     }
 
-    return this.client.rawRequest<{ executionId: string; status: string }>("/execute/transfer", {
+    return this.client.rawRequest<{ executionId: string; status: string; transactionHash?: string; transactionLink?: string }>("/execute/transfer", {
       method: "POST",
       body: JSON.stringify(payload),
     });

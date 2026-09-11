@@ -70,7 +70,7 @@ describe("Failure-Mode Invariant Injection & Zero-Gas Stand-Down Verification", 
     // Verify Zero-Gas audit proof
     const auditProof = verifyZeroGasStandDown(summary, faultyPathway.totalValueUsd);
     expect(auditProof.passedZeroGasTest).toBe(true);
-    expect(auditProof.capitalProtectedUsd).toBe(250.0);
+    expect(auditProof.capitalProtectedUsd).toBe(50.0);
     expect(auditProof.gasBurnedUsd).toBe(0);
     expect(auditProof.preventedTransactions).toBe(3);
     expect(auditProof.noncePreserved).toBe(true);

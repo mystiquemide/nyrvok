@@ -79,7 +79,12 @@ export async function executeWaypointStep(
   const keeperNetwork = network === "base-sepolia" ? "base-sepolia" : "base";
   const viemClient = getBasePublicClient(network);
 
-  let triggerRes: { executionId: string; status: string };
+  let triggerRes: {
+    executionId: string;
+    status: string;
+    transactionHash?: string;
+    transactionLink?: string;
+  };
 
   if (step.action === "rebalance" && step.amount && step.recipientAddress) {
     triggerRes = await keeperClient.executeTransfer({
@@ -110,8 +115,15 @@ export async function executeWaypointStep(
   let finalTxHash: `0x${string}` | undefined;
   let finalStatus: "confirmed" | "failed" = "failed";
 
-  // Poll until KeeperHub reports completion or timeout
-  while (Date.now() - startTime < maxWaitMs) {
+  if (triggerRes.status === "completed" || triggerRes.status === "success") {
+    finalStatus = "confirmed";
+    if (triggerRes.transactionHash && triggerRes.transactionHash.startsWith("0x")) {
+      finalTxHash = triggerRes.transactionHash as `0x${string}`;
+    }
+  }
+
+  // Poll until KeeperHub reports completion or timeout if not already confirmed
+  while (!finalTxHash && Date.now() - startTime < maxWaitMs) {
     const statusData = await keeperClient.getExecutionStatus(executionId);
 
     if (statusData.status === "completed" || statusData.status === "success") {
