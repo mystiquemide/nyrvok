@@ -76,6 +76,32 @@ export interface ExecutionReceipt {
   timestamp: number;
 }
 
+export interface ERC8004FeedbackRecord {
+  feedbackId: string;
+  agentAddress: `0x${string}`;
+  pathwayId: string;
+  pathwayHash: `0x${string}`;
+  executionId: string;
+  score: number; // 0-100
+  latencyMs: number;
+  totalGasUsed: bigint;
+  transactionHashes: `0x${string}`[];
+  metadataUri: string;
+  blockNumber: bigint;
+  timestamp: number;
+  onChainTxHash?: `0x${string}`;
+}
+
+export interface AgentReputationSummary {
+  agentAddress: `0x${string}`;
+  totalExecutions: number;
+  successfulExecutions: number;
+  averageScore: number;
+  trustScoreBps: number;
+  totalGasUsed: bigint;
+  lastFeedbackTimestamp: number;
+}
+
 export interface TelemetryStats {
   totalSimulations: number;
   passedCount: number;
