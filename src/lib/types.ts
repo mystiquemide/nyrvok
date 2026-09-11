@@ -17,6 +17,12 @@ export interface WaypointStep {
   maxSlippageBps: number;
   label: string;
   description: string;
+  functionName?: string;
+  functionArgs?: unknown[];
+  abi?: unknown[];
+  tokenAddress?: `0x${string}`;
+  recipientAddress?: `0x${string}`;
+  amount?: string;
 }
 
 export interface WaypointPathway {
@@ -36,6 +42,7 @@ export interface WaypointPathway {
 export interface SimulationResult {
   simulationId: string;
   pathwayId: string;
+  stepIndex?: number;
   status: "passed" | "refused";
   estimatedGas: bigint;
   gasPriceGwei: number;
@@ -50,6 +57,7 @@ export interface SimulationResult {
     value: string;
     chainId: number;
   };
+  keeperHubRaw?: unknown;
 }
 
 export interface ExecutionReceipt {
