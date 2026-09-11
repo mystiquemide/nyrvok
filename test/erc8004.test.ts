@@ -110,10 +110,12 @@ describe("ERC-8004 Reputation Feedback Logger", () => {
   it("aggregates agent reputation summary metrics and trust score bps", async () => {
     const agentAddr = "0x05619d1a133623b322a8f366ea9594e4e586f26d" as `0x${string}`;
 
-    // Baseline before executions
+    // Baseline before executions (REV-5: unrated / null trustScoreBps)
     const baseline = getAgentReputationSummary(agentAddr);
     expect(baseline.totalExecutions).toBe(0);
-    expect(baseline.trustScoreBps).toBe(10000);
+    expect(baseline.trustScoreBps).toBeNull();
+    expect(baseline.averageScore).toBeNull();
+    expect(baseline.rated).toBe(false);
 
     // Log two executions
     await logPathwayExecutionFeedback(mockReceipts, BOROS_HYPE_PATHWAY, agentAddr);
@@ -122,6 +124,7 @@ describe("ERC-8004 Reputation Feedback Logger", () => {
     const summary = getAgentReputationSummary(agentAddr);
     expect(summary.totalExecutions).toBe(2);
     expect(summary.successfulExecutions).toBe(2);
+    expect(summary.rated).toBe(true);
     expect(summary.averageScore).toBeGreaterThanOrEqual(70);
     expect(summary.trustScoreBps).toBeGreaterThanOrEqual(7000);
     expect(summary.totalGasUsed).toBe(BigInt(340000));

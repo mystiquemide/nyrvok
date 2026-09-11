@@ -1,15 +1,10 @@
 import { describe, it, expect } from "vitest";
-import {
-  getWayfinderProvider,
-  WayfinderFixtureProvider,
-  STRATEGY_CATALOG,
-} from "../src/lib/wayfinder/provider";
+import { getWayfinderProvider } from "../src/lib/wayfinder/provider";
 import {
   BOROS_HYPE_PATHWAY,
   MOONWELL_USDC_PATHWAY,
   AERODROME_SWAP_PATHWAY,
   FAILING_SLIPPAGE_PATHWAY,
-  BASE_CONTRACTS,
 } from "../src/lib/wayfinder/fixtures";
 import { simulateWaypointPathway } from "../src/lib/keeperhub/simulation";
 import { NyrvokKeeperHubClient } from "../src/lib/keeperhub/client";

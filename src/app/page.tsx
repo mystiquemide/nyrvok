@@ -42,26 +42,34 @@ export default function Home() {
     }
   }, []);
 
-  const loadInitialData = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const ingestRes = await fetch("/api/waypoint/ingest");
-      if (ingestRes.ok) {
-        const data = await ingestRes.json();
-        setStrategies(data.strategies || []);
-        setActivePathway(data.activePathway || null);
-      }
-      await fetchTelemetry();
-    } catch {
-      setStatusNotification("Failed to connect to Nyrvok API. Refresh to retry.");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [fetchTelemetry]);
-
   useEffect(() => {
-    loadInitialData();
-  }, [loadInitialData]);
+    let ignore = false;
+    async function init() {
+      try {
+        const ingestRes = await fetch("/api/waypoint/ingest");
+        if (ingestRes.ok && !ignore) {
+          const data = await ingestRes.json();
+          setStrategies(data.strategies || []);
+          setActivePathway(data.activePathway || null);
+        }
+        if (!ignore) {
+          await fetchTelemetry();
+        }
+      } catch {
+        if (!ignore) {
+          setStatusNotification("Failed to connect to Nyrvok API. Refresh to retry.");
+        }
+      } finally {
+        if (!ignore) {
+          setIsLoading(false);
+        }
+      }
+    }
+    init();
+    return () => {
+      ignore = true;
+    };
+  }, [fetchTelemetry]);
 
   const handleSelectStrategy = async (strategyId: string) => {
     setSimulationResults(null);
@@ -133,8 +141,9 @@ export default function Home() {
       const data = await res.json();
       if (data.success && data.summary) {
         setExecutionReceipts(data.summary.receipts);
+        const netLabel = activePathway?.network === "base-sepolia" ? "Base Sepolia" : "Base";
         setStatusNotification(
-          `Successfully landed ${data.summary.completedSteps} transaction(s) on Base mainnet via KeeperHub.`
+          `Successfully landed ${data.summary.completedSteps} transaction(s) on ${netLabel} via KeeperHub.`
         );
       } else {
         setStatusNotification(`Execution halted: ${data.error}`);

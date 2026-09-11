@@ -1,8 +1,8 @@
 import { WayfinderFixtureProvider } from "../src/lib/wayfinder/provider";
 import { simulateWaypointPathway } from "../src/lib/keeperhub/simulation";
-import { executeApprovedPathway, getBasePublicClient, getExplorerUrl } from "../src/lib/keeperhub/executor";
+import { getBasePublicClient, getExplorerUrl } from "../src/lib/keeperhub/executor";
 import { injectSlippageFailure, verifyZeroGasStandDown } from "../src/lib/wayfinder/failure-fixture";
-import { logPathwayExecutionFeedback, getAgentReputationSummary } from "../src/lib/reputation/erc8004";
+import { logPathwayExecutionFeedback, getAgentReputationSummary, DEFAULT_ERC8004_REGISTRY } from "../src/lib/reputation/erc8004";
 import { getKeeperHubClient } from "../src/lib/keeperhub/client";
 
 // Ensure environment variables from .env.local are loaded
@@ -120,11 +120,12 @@ async function main() {
   );
 
   const reputation = getAgentReputationSummary("0x05619d1a133623B322a8f366ea9594e4e586f26D");
-  console.log(`  - ERC-8004 Registry    : 0x8004000000000000000000000000000000000001`);
+  console.log(`  - ERC-8004 Schema Registry: ${DEFAULT_ERC8004_REGISTRY}`);
   console.log(`  - Attestation ID       : ${loggedRecord.feedbackId}`);
   console.log(`  - Pathway Hash         : ${loggedRecord.pathwayHash}`);
   console.log(`  - Performance Score    : ${loggedRecord.score}/100`);
-  console.log(`  - Agent Trust Score    : ${(reputation.trustScoreBps / 100).toFixed(2)}% (${reputation.trustScoreBps} bps)`);
+  const trustBps = reputation.trustScoreBps ?? 10000;
+  console.log(`  - Agent Trust Score    : ${(trustBps / 100).toFixed(2)}% (${trustBps} bps)`);
   console.log(`  - Metadata Data URI    : ${loggedRecord.metadataUri.slice(0, 50)}...`);
 
   const durationSec = ((Date.now() - startTime) / 1000).toFixed(2);

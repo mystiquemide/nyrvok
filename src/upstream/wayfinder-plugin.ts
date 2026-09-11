@@ -8,13 +8,14 @@
 
 import {
   WaypointPathway,
-  WaypointStep,
   SimulationResult,
   ExecutionReceipt,
   ProtocolId,
+  AgentReputationSummary,
+  ERC8004FeedbackRecord,
 } from "../lib/types";
-import { simulateWaypointPathway } from "../lib/keeperhub/simulation";
-import { executeApprovedPathway } from "../lib/keeperhub/executor";
+import { simulateWaypointPathway, PathwaySimulationSummary } from "../lib/keeperhub/simulation";
+import { executeApprovedPathway, PathwayExecutionSummary } from "../lib/keeperhub/executor";
 import { logPathwayExecutionFeedback, getAgentReputationSummary } from "../lib/reputation/erc8004";
 import { getWayfinderProvider } from "../lib/wayfinder/provider";
 import { NyrvokKeeperHubClient } from "../lib/keeperhub/client";
@@ -45,7 +46,7 @@ export interface ReputationInput {
   receipts: ExecutionReceipt[];
 }
 
-export interface KeeperHubPluginAction<TInput = any, TOutput = any> {
+export interface KeeperHubPluginAction<TInput = Record<string, unknown>, TOutput = unknown> {
   id: string;
   name: string;
   description: string;
@@ -53,7 +54,15 @@ export interface KeeperHubPluginAction<TInput = any, TOutput = any> {
   handler: (input: TInput, context?: PluginExecutionContext) => Promise<TOutput>;
 }
 
-export interface KeeperHubProtocolPlugin {
+export interface WayfinderPluginActions {
+  ingestPathway: KeeperHubPluginAction<IngestInput, WaypointPathway>;
+  simulateRoute: KeeperHubPluginAction<SimulateInput, PathwaySimulationSummary>;
+  executeBundle: KeeperHubPluginAction<ExecuteInput, PathwayExecutionSummary>;
+  logReputation: KeeperHubPluginAction<ReputationInput, ERC8004FeedbackRecord>;
+  getReputationStats: KeeperHubPluginAction<{ agentAddress?: `0x${string}` }, AgentReputationSummary>;
+}
+
+export interface KeeperHubProtocolPlugin<TActions = WayfinderPluginActions> {
   id: string;
   name: string;
   description: string;
@@ -61,7 +70,7 @@ export interface KeeperHubProtocolPlugin {
   author: string;
   protocols: ProtocolId[];
   supportedNetworks: string[];
-  actions: Record<string, KeeperHubPluginAction>;
+  actions: TActions;
 }
 
 /**

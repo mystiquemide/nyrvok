@@ -1,20 +1,23 @@
-import { NextRequest } from "next/server";
 import { getTelemetryPayload } from "@/lib/telemetry-store";
 import { getKeeperHubClient } from "@/lib/keeperhub/client";
 import { jsonResponse } from "@/lib/json";
 
-export async function GET(_request: NextRequest) {
+export async function GET() {
   try {
     const telemetry = getTelemetryPayload();
 
-    let keeperUserInfo = null;
+    let keeperUser = null;
     try {
       if (process.env.KEEPERHUB_API_KEY) {
         const client = getKeeperHubClient();
-        keeperUserInfo = await client.getUser();
-        if (keeperUserInfo.walletAddress) {
-          telemetry.walletAddress = keeperUserInfo.walletAddress;
+        const userInfo = await client.getUser();
+        if (userInfo.walletAddress) {
+          telemetry.walletAddress = userInfo.walletAddress;
         }
+        keeperUser = {
+          name: userInfo.name,
+          walletAddress: userInfo.walletAddress,
+        };
       }
     } catch {
       // Offline fallback
@@ -23,7 +26,7 @@ export async function GET(_request: NextRequest) {
     return jsonResponse({
       success: true,
       telemetry,
-      keeperUser: keeperUserInfo,
+      keeperUser,
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Failed to load telemetry";

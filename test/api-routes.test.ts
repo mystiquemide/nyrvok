@@ -108,9 +108,8 @@ describe("Next.js API Routes: Ingest, Simulate, Execute, Telemetry", () => {
     expect(blockedData.code).toBe("SAFETY_INVARIANT_VIOLATION");
   });
 
-  it("GET /api/telemetry/stats returns session telemetry, wallet, and reputation", async () => {
-    const req = new NextRequest("http://localhost:3000/api/telemetry/stats");
-    const res = await telemetryGet(req);
+  it("GET /api/telemetry/stats returns session telemetry, wallet, and unrated reputation on empty ledger (REV-5, REV-10)", async () => {
+    const res = await telemetryGet();
     expect(res.status).toBe(200);
 
     const data = await res.json();
@@ -119,6 +118,54 @@ describe("Next.js API Routes: Ingest, Simulate, Execute, Telemetry", () => {
     expect(data.telemetry.activeNetwork).toContain("Base");
     expect(data.telemetry.walletAddress).toBeDefined();
     expect(data.telemetry.reputation).toBeDefined();
-    expect(data.telemetry.reputation.trustScoreBps).toBe(10000);
+    expect(data.telemetry.reputation.trustScoreBps).toBeNull();
+    expect(data.telemetry.reputation.rated).toBe(false);
+    // Data minimization check (REV-10): keeperUser if present must not have email
+    if (data.keeperUser) {
+      expect(data.keeperUser.email).toBeUndefined();
+      expect(data.keeperUser.id).toBeUndefined();
+    }
+  });
+
+  it("POST /api/waypoint/ingest rejects malformed targetAddress and invalid BigInt values (REV-17)", async () => {
+    // Malformed targetAddress
+    const badAddressReq = new NextRequest("http://localhost:3000/api/waypoint/ingest", {
+      method: "POST",
+      body: JSON.stringify({
+        pathwayId: "bad_addr_01",
+        steps: [
+          {
+            stepIndex: 0,
+            targetAddress: "invalid-not-a-hex-address",
+            calldata: "0x",
+            value: "0",
+          },
+        ],
+      }),
+    });
+    const badAddressRes = await ingestPost(badAddressReq);
+    expect(badAddressRes.status).toBe(400);
+    const badAddrData = await badAddressRes.json();
+    expect(badAddrData.error).toContain("Invalid targetAddress");
+
+    // Invalid BigInt value
+    const badValueReq = new NextRequest("http://localhost:3000/api/waypoint/ingest", {
+      method: "POST",
+      body: JSON.stringify({
+        pathwayId: "bad_val_01",
+        steps: [
+          {
+            stepIndex: 0,
+            targetAddress: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+            calldata: "0x",
+            value: "not_a_number_abc",
+          },
+        ],
+      }),
+    });
+    const badValueRes = await ingestPost(badValueReq);
+    expect(badValueRes.status).toBe(400);
+    const badValData = await badValueRes.json();
+    expect(badValData.error).toContain("not a valid integer/BigInt");
   });
 });

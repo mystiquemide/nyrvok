@@ -37,11 +37,11 @@ This contribution packages a standalone, modular **Wayfinder Protocol Plugin** m
 
 3. **`executeBundle`**
    - Strict Invariant Gate: Refuses to submit transactions to the mempool unless all steps have confirmed pre-flight simulation approval.
-   - Executes transactions on Base through KeeperHub with Turnkey-managed custody.
+   - Executes transactions on Base through KeeperHub with managed custody.
    - Confirms block numbers and gas consumption directly against Base RPC using Viem.
 
 4. **`logReputation`**
-   - Emits standardized performance scores (0 - 100) and execution telemetry to the **ERC-8004 Reputation Registry** on Base.
+   - Emits standardized performance scores (0 - 100) and execution telemetry formatted according to the **ERC-8004 Reputation Registry** schema.
    - Encodes verified step hashes, transaction proofs, and timing data into verifiable Base64 Data URIs.
 
 5. **`getReputationStats`**
@@ -66,7 +66,7 @@ This contribution packages a standalone, modular **Wayfinder Protocol Plugin** m
        │ Pre-flight Dry-Run (simulate: true)
        ▼           ▼
 ┌──────────────┐ ┌──────────────────────────────────────────────┐
-│ Invariant    │ │ Turnkey Managed Custody & Viem Verification  │
+│ Invariant    │ │ KeeperHub Managed Custody & Viem Verification│
 │ Checker      │ │ (Base Mainnet / Base Sepolia)               │
 └──────────────┘ └──────────────────────┬───────────────────────┘
                                         │
@@ -94,7 +94,7 @@ All actions have dedicated test suites in [`test/upstream-plugin.test.ts`](../te
 pnpm vitest run test/upstream-plugin.test.ts
 ```
 
-All 5 plugin unit tests and 28 repository-wide test suites pass with 0 errors.
+All 5 plugin unit tests and 39 repository-wide tests across 7 test files pass with 0 errors.
 
 ---
 

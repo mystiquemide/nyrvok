@@ -1,15 +1,12 @@
 import {
   WaypointPathway,
-  ProtocolId,
+  WaypointStep,
   IWayfinderProvider,
   StrategyMeta,
 } from "../types";
 import {
   ALL_FIXTURES,
   BOROS_HYPE_PATHWAY,
-  MOONWELL_USDC_PATHWAY,
-  AERODROME_SWAP_PATHWAY,
-  FAILING_SLIPPAGE_PATHWAY,
 } from "./fixtures";
 
 export type { StrategyMeta };
@@ -52,7 +49,7 @@ export const STRATEGY_CATALOG: StrategyMeta[] = [
     protocols: ["aerodrome", "moonwell"],
     stepsCount: 3,
     defaultNetwork: "base-mainnet",
-    totalValueUsd: 500.0,
+    totalValueUsd: 50.0,
     riskTier: "stress-test",
   },
 ];
@@ -67,7 +64,10 @@ export class WayfinderFixtureProvider implements IWayfinderProvider {
 
   async getPathway(pathwayId?: string): Promise<WaypointPathway> {
     const key = pathwayId || "boros_hype";
-    const template = ALL_FIXTURES[key] || BOROS_HYPE_PATHWAY;
+    const template = ALL_FIXTURES[key];
+    if (!template) {
+      throw new Error(`Strategy or pathway template not found: ${key}`);
+    }
     return this.clonePathway(template);
   }
 
@@ -82,15 +82,23 @@ export class WayfinderFixtureProvider implements IWayfinderProvider {
   }
 
   private clonePathway(p: WaypointPathway): WaypointPathway {
+    const freshDeadline = Math.floor(Date.now() / 1000) + 1800;
     return {
       ...p,
       timestamp: Date.now(),
-      steps: p.steps.map((s) => ({
-        ...s,
-        value: BigInt(s.value.toString()),
-        functionArgs: s.functionArgs ? [...s.functionArgs] : undefined,
-        abi: s.abi ? [...s.abi] : undefined,
-      })),
+      steps: p.steps.map((s) => {
+        let functionArgs = s.functionArgs ? [...s.functionArgs] : undefined;
+        if (s.action === "swap" && functionArgs && functionArgs.length >= 5) {
+          functionArgs = [...functionArgs];
+          functionArgs[4] = freshDeadline;
+        }
+        return {
+          ...s,
+          value: BigInt(s.value.toString()),
+          functionArgs,
+          abi: s.abi ? [...s.abi] : undefined,
+        };
+      }),
       metadata: p.metadata ? { ...p.metadata } : undefined,
     };
   }
@@ -137,7 +145,7 @@ export class WayfinderLiveCoordinatorProvider implements IWayfinderProvider {
       const raw = await res.json();
       return {
         ...raw,
-        steps: raw.steps.map((s: any) => ({
+        steps: raw.steps.map((s: WaypointStep) => ({
           ...s,
           value: BigInt(s.value || "0"),
         })),
@@ -151,7 +159,18 @@ export class WayfinderLiveCoordinatorProvider implements IWayfinderProvider {
     strategyId: string,
     network?: "base-mainnet" | "base-sepolia"
   ): Promise<WaypointPathway> {
-    return this.fixtureFallback.getStrategyPathway(strategyId, network);
+    if (!this.baseUrl) {
+      return this.fixtureFallback.getStrategyPathway(strategyId, network);
+    }
+    try {
+      const pathway = await this.getPathway(strategyId);
+      if (network) {
+        pathway.network = network;
+      }
+      return pathway;
+    } catch {
+      return this.fixtureFallback.getStrategyPathway(strategyId, network);
+    }
   }
 }
 

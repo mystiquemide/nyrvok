@@ -18,13 +18,13 @@ export const SimulationVerdict: React.FC<SimulationVerdictProps> = ({ summary })
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#FF3366] animate-pulse"></span>
+              <span className="w-2.5 h-2.5 rounded-full bg-[#FF3366]"></span>
               <h3 className="font-mono text-sm font-bold tracking-wider text-[#FF3366] uppercase">
                 SIMULATION REFUSAL: EXECUTION HALTED BEFORE BROADCAST
               </h3>
             </div>
             <p className="text-xs text-[#F0F4FC]">
-              KeeperHub pre-flight dry-run detected an invariant violation on Base mainnet. Pipeline halted automatically to prevent burned gas and reverted transactions.
+              KeeperHub pre-flight dry-run detected an invariant violation on Base. Pipeline halted automatically to prevent burned gas and reverted transactions.
             </p>
           </div>
 
@@ -55,13 +55,18 @@ export const SimulationVerdict: React.FC<SimulationVerdictProps> = ({ summary })
             </div>
             <div>
               <span className="text-[#7E8B9F] block text-[10px]">NONCE INTEGRITY</span>
-              <span className="text-[#00E599] font-bold">PRESERVED</span>
+              <span className="text-[#00E599] font-bold">STAND-DOWN (NO BROADCAST)</span>
             </div>
           </div>
         </div>
       </div>
     );
   }
+
+  const estimatedFeeUsd = Math.max(
+    0.01,
+    Number(((Number(summary.totalEstimatedGas) * 0.02 * 1e-9 * 2400) + 0.02).toFixed(4))
+  ).toFixed(4);
 
   return (
     <div className="rounded border border-[#00E599]/60 bg-[#00E599]/5 p-4 space-y-3">
@@ -73,7 +78,7 @@ export const SimulationVerdict: React.FC<SimulationVerdictProps> = ({ summary })
           </h3>
         </div>
         <span className="text-[11px] font-mono px-2 py-0.5 rounded border border-[#00E599]/40 bg-[#00E599]/10 text-[#00E599]">
-          READY FOR TURNKEY SIGNING
+          READY FOR KEEPERHUB SIGNING
         </span>
       </div>
 
@@ -88,7 +93,7 @@ export const SimulationVerdict: React.FC<SimulationVerdictProps> = ({ summary })
         </div>
         <div>
           <span className="text-[#7E8B9F] text-[10px] block">ESTIMATED L2 FEE</span>
-          <span className="text-[#00F0FF] font-semibold">~$0.04 USD</span>
+          <span className="text-[#00F0FF] font-semibold">~${estimatedFeeUsd} USD</span>
         </div>
         <div>
           <span className="text-[#7E8B9F] text-[10px] block">EXECUTION STATUS</span>

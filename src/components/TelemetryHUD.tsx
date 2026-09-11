@@ -13,14 +13,19 @@ export const TelemetryHUD: React.FC<TelemetryHUDProps> = ({ telemetry, isLoading
     ? `${telemetry.walletAddress.slice(0, 6)}...${telemetry.walletAddress.slice(-4)}`
     : "0x0561...f26d";
 
-  const trustScorePercent = telemetry?.reputation?.trustScoreBps
-    ? (telemetry.reputation.trustScoreBps / 100).toFixed(1)
-    : "100.0";
+  const trustScorePercent =
+    telemetry?.reputation?.rated && telemetry?.reputation?.trustScoreBps !== null
+      ? `${(telemetry.reputation.trustScoreBps / 100).toFixed(1)}%`
+      : "NO DATA";
 
   const passRate =
     telemetry && telemetry.totalSimulations > 0
       ? Math.round((telemetry.passedCount / telemetry.totalSimulations) * 100)
       : 100;
+
+  const networkBadge = telemetry?.activeNetwork
+    ? telemetry.activeNetwork.toUpperCase()
+    : "BASE (8453)";
 
   return (
     <header className="border-b border-[#1E2638] bg-[#0A0D14]/90 backdrop-blur sticky top-0 z-40">
@@ -48,7 +53,7 @@ export const TelemetryHUD: React.FC<TelemetryHUDProps> = ({ telemetry, isLoading
         <div className="flex flex-wrap items-center gap-2 text-xs font-mono">
           <div className="px-2.5 py-1 rounded border border-[#1E2638] bg-[#111622] flex items-center gap-1.5 text-[#7E8B9F]">
             <span className="w-2 h-2 rounded-full bg-[#0052FF]"></span>
-            <span>BASE (8453)</span>
+            <span>{networkBadge}</span>
           </div>
 
           <div className="px-2.5 py-1 rounded border border-[#1E2638] bg-[#111622] text-[#F0F4FC] flex items-center gap-1.5">
@@ -58,7 +63,9 @@ export const TelemetryHUD: React.FC<TelemetryHUDProps> = ({ telemetry, isLoading
 
           <div className="px-2.5 py-1 rounded border border-[#1E2638] bg-[#111622] flex items-center gap-1.5">
             <span className="text-[#7E8B9F]">ERC-8004 TRUST:</span>
-            <span className="text-[#00E599] font-bold">{trustScorePercent}%</span>
+            <span className={telemetry?.reputation?.rated ? "text-[#00E599] font-bold" : "text-[#7E8B9F] font-semibold"}>
+              {trustScorePercent}
+            </span>
           </div>
         </div>
       </div>

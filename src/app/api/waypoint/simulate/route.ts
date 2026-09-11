@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { simulateWaypointPathway } from "@/lib/keeperhub/simulation";
 import { getWayfinderProvider } from "@/lib/wayfinder/provider";
-import { WaypointPathway } from "@/lib/types";
+import { WaypointPathway, WaypointStep } from "@/lib/types";
 import { jsonResponse } from "@/lib/json";
 import { recordSimulationTelemetry } from "@/lib/telemetry-store";
 
@@ -14,9 +14,9 @@ export async function POST(request: NextRequest) {
       // Incoming serialized pathway: ensure BigInt fields are restored
       pathway = {
         ...body.pathway,
-        steps: body.pathway.steps.map((s: any) => ({
+        steps: (body.pathway.steps as WaypointStep[]).map((s) => ({
           ...s,
-          value: BigInt(s.value || "0"),
+          value: BigInt(s.value ? s.value.toString() : "0"),
         })),
       };
     } else if (body.strategyId) {

@@ -1,4 +1,4 @@
-import { createPublicClient, http, type Hash } from "viem";
+import { createPublicClient, http } from "viem";
 import { base, baseSepolia } from "viem/chains";
 import {
   WaypointPathway,
@@ -10,6 +10,10 @@ import {
   NyrvokKeeperHubClient,
   getKeeperHubClient,
 } from "./client";
+import {
+  getIdempotentExecution,
+  recordIdempotentExecution,
+} from "../telemetry-store";
 
 export interface PathwayExecutionSummary {
   pathwayId: string;
@@ -23,6 +27,7 @@ export interface PathwayExecutionSummary {
   totalGasUsed: bigint;
   timestamp: number;
   failureReason?: string;
+  idempotentReplay?: boolean;
 }
 
 /**
@@ -73,11 +78,19 @@ export async function executeWaypointStep(
   step: WaypointStep,
   network: "base-mainnet" | "base-sepolia" = "base-mainnet",
   pathwayId: string = "",
-  client?: NyrvokKeeperHubClient
+  client?: NyrvokKeeperHubClient,
+  publicClient?: {
+    getTransactionReceipt: (args: { hash: `0x${string}` }) => Promise<{
+      blockNumber: bigint;
+      gasUsed: bigint;
+      effectiveGasPrice?: bigint;
+      status: string;
+    }>;
+  }
 ): Promise<ExecutionReceipt> {
   const keeperClient = client || getKeeperHubClient();
   const keeperNetwork = network === "base-sepolia" ? "base-sepolia" : "base";
-  const viemClient = getBasePublicClient(network);
+  const viemClient = publicClient || getBasePublicClient(network);
 
   let triggerRes: {
     executionId: string;
@@ -112,13 +125,14 @@ export async function executeWaypointStep(
   const pollIntervalMs = 1_500;
   const startTime = Date.now();
 
-  let finalTxHash: `0x${string}` | undefined;
+  let finalTxHash: `0x${string}` | null = null;
   let finalStatus: "confirmed" | "failed" = "failed";
+  let failureReason: string | undefined;
 
   if (triggerRes.status === "completed" || triggerRes.status === "success") {
-    finalStatus = "confirmed";
     if (triggerRes.transactionHash && triggerRes.transactionHash.startsWith("0x")) {
       finalTxHash = triggerRes.transactionHash as `0x${string}`;
+      finalStatus = "confirmed";
     }
   }
 
@@ -127,9 +141,9 @@ export async function executeWaypointStep(
     const statusData = await keeperClient.getExecutionStatus(executionId);
 
     if (statusData.status === "completed" || statusData.status === "success") {
-      finalStatus = "confirmed";
       if (statusData.transactionHash && statusData.transactionHash.startsWith("0x")) {
         finalTxHash = statusData.transactionHash as `0x${string}`;
+        finalStatus = "confirmed";
       }
       break;
     } else if (
@@ -138,16 +152,18 @@ export async function executeWaypointStep(
       statusData.status === "cancelled"
     ) {
       finalStatus = "failed";
+      failureReason = statusData.error || `KeeperHub execution ${statusData.status}`;
       break;
     }
 
     await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
   }
 
-  // Fallback transaction hash if status did not deliver one (e.g. simulated mock execution)
-  const txHash: `0x${string}` =
-    finalTxHash ||
-    (`0x${Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join("")}` as `0x${string}`);
+  // REV-1: Never synthesize or fabricate a transaction hash
+  if (!finalTxHash) {
+    finalStatus = "failed";
+    failureReason = failureReason || "Transaction hash not returned by executor";
+  }
 
   let blockNumber = BigInt(0);
   let gasUsed = BigInt(0);
@@ -161,9 +177,13 @@ export async function executeWaypointStep(
       gasUsed = receipt.gasUsed;
       effectiveGasPrice = receipt.effectiveGasPrice || BigInt(20000000);
       finalStatus = receipt.status === "success" ? "confirmed" : "failed";
-    } catch {
-      // If receipt is still propagating through L2 sequencers, record status
-      finalStatus = "confirmed";
+      if (receipt.status !== "success") {
+        failureReason = "Transaction reverted on-chain";
+      }
+    } catch (err: unknown) {
+      // REV-1: If receipt verification fails (hash not found or RPC error), do NOT force "confirmed"!
+      finalStatus = "failed";
+      failureReason = err instanceof Error ? `Receipt verification failed: ${err.message}` : "Receipt verification failed";
     }
   }
 
@@ -172,13 +192,14 @@ export async function executeWaypointStep(
     pathwayId,
     stepIndex: step.stepIndex,
     protocol: step.protocol,
-    transactionHash: txHash,
+    transactionHash: finalTxHash,
     blockNumber,
     gasUsed,
     effectiveGasPrice,
     status: finalStatus,
-    explorerUrl: getExplorerUrl(txHash, network),
+    explorerUrl: finalTxHash ? getExplorerUrl(finalTxHash, network) : null,
     erc8004Logged: false,
+    failureReason,
     timestamp: Date.now(),
   };
 }
@@ -190,15 +211,32 @@ export async function executeWaypointStep(
 export async function executeApprovedPathway(
   pathway: WaypointPathway,
   simulationResults: SimulationResult[],
-  client?: NyrvokKeeperHubClient
+  client?: NyrvokKeeperHubClient,
+  publicClient?: {
+    getTransactionReceipt: (args: { hash: `0x${string}` }) => Promise<{
+      blockNumber: bigint;
+      gasUsed: bigint;
+      effectiveGasPrice?: bigint;
+      status: string;
+    }>;
+  }
 ): Promise<PathwayExecutionSummary> {
-  // Safety Invariant Check: Verify simulation results
+  // REV-3: Check 24-hour deterministic idempotency cache first
+  if (pathway.idempotencyKey) {
+    const cached = getIdempotentExecution(pathway.idempotencyKey);
+    if (cached) {
+      return cached;
+    }
+  }
+
+  // REV-2: Safety Invariant Check: Verify simulation results exist
   if (!simulationResults || simulationResults.length === 0) {
     throw new Error(
       "SAFETY_INVARIANT_VIOLATION: Cannot execute pathway without pre-flight simulation results"
     );
   }
 
+  // Check if any step failed simulation first (circuit breaker refusal)
   const refusedStep = simulationResults.find((r) => r.status === "refused");
   if (refusedStep) {
     throw new Error(
@@ -212,6 +250,28 @@ export async function executeApprovedPathway(
     );
   }
 
+  const MAX_SIMULATION_AGE_MS = 15 * 60 * 1000; // 15 minute freshness window
+  const now = Date.now();
+
+  for (let i = 0; i < pathway.steps.length; i++) {
+    const sim = simulationResults[i];
+    if (sim.pathwayId && sim.pathwayId !== pathway.pathwayId) {
+      throw new Error(
+        `SAFETY_INVARIANT_VIOLATION: Simulation pathway ID mismatch. Expected ${pathway.pathwayId}, got ${sim.pathwayId}`
+      );
+    }
+    if (sim.stepIndex !== i) {
+      throw new Error(
+        `SAFETY_INVARIANT_VIOLATION: Simulation step index mismatch at position ${i}. Expected ${i}, got ${sim.stepIndex}`
+      );
+    }
+    if (sim.timestamp && now - sim.timestamp > MAX_SIMULATION_AGE_MS) {
+      throw new Error(
+        `SAFETY_INVARIANT_VIOLATION: Simulation results expired (older than 15 minutes)`
+      );
+    }
+  }
+
   const receipts: ExecutionReceipt[] = [];
   let allSucceeded = true;
   let totalGasUsed = BigInt(0);
@@ -223,14 +283,15 @@ export async function executeApprovedPathway(
         step,
         pathway.network,
         pathway.pathwayId,
-        client
+        client,
+        publicClient
       );
       receipts.push(receipt);
       totalGasUsed += receipt.gasUsed;
 
       if (receipt.status === "failed") {
         allSucceeded = false;
-        failureReason = `Execution failed at step ${step.stepIndex} (${step.label})`;
+        failureReason = receipt.failureReason || `Execution failed at step ${step.stepIndex} (${step.label})`;
         break; // Circuit breaker: halt on-chain execution immediately
       }
     } catch (err: unknown) {
@@ -240,7 +301,7 @@ export async function executeApprovedPathway(
     }
   }
 
-  return {
+  const summary: PathwayExecutionSummary = {
     pathwayId: pathway.pathwayId,
     strategyId: pathway.strategyId,
     network: pathway.network,
@@ -253,4 +314,11 @@ export async function executeApprovedPathway(
     timestamp: Date.now(),
     failureReason,
   };
+
+  // REV-3: Record in idempotency cache if key provided
+  if (pathway.idempotencyKey) {
+    recordIdempotentExecution(pathway.idempotencyKey, summary);
+  }
+
+  return summary;
 }

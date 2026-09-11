@@ -45,6 +45,51 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const addressRegex = /^0x[a-fA-F0-9]{40}$/;
+    const calldataRegex = /^0x[a-fA-F0-9]*$/;
+
+    // Validate step addresses, calldata, and values
+    for (let i = 0; i < body.steps.length; i++) {
+      const step = body.steps[i] as Record<string, unknown>;
+      if (!step || typeof step !== "object") {
+        return jsonResponse(
+          { success: false, error: `Invalid step object at index ${i}` },
+          { status: 400 }
+        );
+      }
+      if (!step.targetAddress || typeof step.targetAddress !== "string" || !addressRegex.test(step.targetAddress)) {
+        return jsonResponse(
+          {
+            success: false,
+            error: `Invalid targetAddress at step ${i}: must be a 0x-prefixed 40-character hex address`,
+          },
+          { status: 400 }
+        );
+      }
+      if (step.calldata && (typeof step.calldata !== "string" || !calldataRegex.test(step.calldata))) {
+        return jsonResponse(
+          {
+            success: false,
+            error: `Invalid calldata at step ${i}: must be a valid 0x-prefixed hex string`,
+          },
+          { status: 400 }
+        );
+      }
+      if (step.value !== undefined && step.value !== null) {
+        try {
+          BigInt(String(step.value));
+        } catch {
+          return jsonResponse(
+            {
+              success: false,
+              error: `Invalid value at step ${i}: '${step.value}' is not a valid integer/BigInt`,
+            },
+            { status: 400 }
+          );
+        }
+      }
+    }
+
     // Parse and normalize steps with BigInt values
     const pathway: WaypointPathway = {
       pathwayId: body.pathwayId,
@@ -57,20 +102,20 @@ export async function POST(request: NextRequest) {
         coordinator: "http-ingest",
         version: "1.0",
       },
-      steps: body.steps.map((step: any, index: number) => ({
+      steps: (body.steps as Record<string, unknown>[]).map((step, index: number) => ({
         stepIndex: typeof step.stepIndex === "number" ? step.stepIndex : index,
-        protocol: step.protocol || "aerodrome",
-        action: step.action || "swap",
-        targetAddress: step.targetAddress,
-        calldata: step.calldata || "0x",
-        value: BigInt(step.value || "0"),
-        expectedOutput: step.expectedOutput || "OK",
+        protocol: (step.protocol as WaypointPathway["steps"][number]["protocol"]) || "aerodrome",
+        action: (step.action as WaypointPathway["steps"][number]["action"]) || "swap",
+        targetAddress: step.targetAddress as `0x${string}`,
+        calldata: (step.calldata as `0x${string}`) || "0x",
+        value: BigInt(step.value ? String(step.value) : "0"),
+        expectedOutput: typeof step.expectedOutput === "string" ? step.expectedOutput : "OK",
         maxSlippageBps: Number(step.maxSlippageBps || 0),
-        label: step.label || `Step ${index + 1}`,
-        description: step.description || "",
-        functionName: step.functionName,
-        functionArgs: step.functionArgs,
-        abi: step.abi,
+        label: typeof step.label === "string" ? step.label : `Step ${index + 1}`,
+        description: typeof step.description === "string" ? step.description : "",
+        functionName: typeof step.functionName === "string" ? step.functionName : undefined,
+        functionArgs: Array.isArray(step.functionArgs) ? step.functionArgs : undefined,
+        abi: Array.isArray(step.abi) ? step.abi : undefined,
       })),
     };
 

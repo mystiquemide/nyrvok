@@ -1,4 +1,4 @@
-import { keccak256, toHex, stringToHex } from "viem";
+import { keccak256, stringToHex } from "viem";
 import {
   WaypointPathway,
   ExecutionReceipt,
@@ -117,7 +117,9 @@ export async function logPathwayExecutionFeedback(
 
   const score = calculateExecutionScore(receipts, latencyMs);
   const totalGasUsed = receipts.reduce((acc, r) => acc + r.gasUsed, BigInt(0));
-  const txHashes = receipts.map((r) => r.transactionHash);
+  const txHashes = receipts
+    .map((r) => r.transactionHash)
+    .filter((h): h is `0x${string}` => Boolean(h));
 
   const pathwayHash = keccak256(stringToHex(pathway.pathwayId));
   const executionId = receipts.length > 0 ? receipts[0].executionId : `exec_${Date.now()}`;
@@ -187,15 +189,16 @@ export function getAgentReputationSummary(
   );
 
   if (records.length === 0) {
-    // Default baseline for newly initialized agent
+    // Unrated baseline for newly initialized agent without recorded executions
     return {
       agentAddress,
       totalExecutions: 0,
       successfulExecutions: 0,
-      averageScore: 100,
-      trustScoreBps: 10000,
+      averageScore: null,
+      trustScoreBps: null,
+      rated: false,
       totalGasUsed: BigInt(0),
-      lastFeedbackTimestamp: Date.now(),
+      lastFeedbackTimestamp: 0,
     };
   }
 
@@ -213,6 +216,7 @@ export function getAgentReputationSummary(
     successfulExecutions,
     averageScore,
     trustScoreBps,
+    rated: true,
     totalGasUsed,
     lastFeedbackTimestamp,
   };

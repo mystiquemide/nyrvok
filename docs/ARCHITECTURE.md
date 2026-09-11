@@ -40,8 +40,8 @@ Nyrvok is a deterministic execution gateway connecting autonomous AI pathfinding
 │             │ Confirmed Receipt                                         │
 │             ▼                                                           │
 │  ┌──────────────────────────────┐                                       │
-│  │ ERC-8004 Reputation Logger   │                                       │
-│  │ (Attestation to Registry)    │                                       │
+│  │ ERC-8004 Attestation Schema  │                                       │
+│  │ (RFC Base64 Data URI)        │                                       │
 │  └──────────────────────────────┘                                       │
 └────────────────────────────────────┬────────────────────────────────────┘
                                      │ Status, Proofs & Hashes
@@ -56,25 +56,25 @@ Nyrvok is a deterministic execution gateway connecting autonomous AI pathfinding
 
 ## 2. Core Modules
 
-### 2.1 Waypoint Ingestor (`src/lib/wayfinder/ingestor.ts`)
-- Normalizes raw strategy outputs from Wayfinder Paths Python SDK into strongly typed `WaypointPathway` bundles.
+### 2.1 Waypoint Ingestor (`src/app/api/waypoint/ingest/route.ts`)
+- Normalizes raw strategy outputs from Wayfinder Paths SDK into strongly typed `WaypointPathway` bundles.
 - Decodes and validates target protocol contract calls (e.g. Aerodrome Router, Moonwell Comptroller, Uniswap V3 SwapRouter).
 - Enforces strict parameter validation: maximum allowable slippage (default: 50 bps / 0.5%), deadline limits, and minimum output amounts.
 
 ### 2.2 KeeperHub Simulation Client (`src/lib/keeperhub/simulation.ts`)
-- Calls KeeperHub `/api/execute/simulate` to execute the transaction bundle in a sandbox environment against current chain state.
-- Inspects simulated return values, actual slippage, state diffs, and exact gas estimation.
+- Calls KeeperHub `/execute/contract-call` and `/execute/transfer` with `simulate: true` to dry-run the transaction bundle against current chain state.
+- Inspects simulated return values, slippage tolerances, and exact gas estimation.
 - If simulation detects an invariant violation (e.g., price impact > limit, insufficient liquidity, contract paused), halts immediately with `SIMULATION_REFUSED` and calculates gas saved.
 
-### 2.3 Turnkey Custody & Execution Gateway (`src/lib/keeperhub/executor.ts`)
-- Replaces raw local mnemonics with KeeperHub managed Turnkey sub-wallets.
-- Constructs signed transaction envelopes via KeeperHub's non-custodial signing session.
-- Submits transactions through private RPC channels on Base to prevent public mempool sandwiching and front-running.
-- Manages sequential nonce queues to ensure rapid multi-hop waypoints execute in exact chronological order without dropped nonces.
+### 2.3 KeeperHub Custody & Execution Gateway (`src/lib/keeperhub/executor.ts`)
+- Replaces raw local mnemonics with KeeperHub managed custodial sub-wallets.
+- Delegates transaction signing and broadcast to KeeperHub's secure execution infrastructure.
+- Submits transactions to Base and verifies receipts directly against Base RPC nodes using Viem.
+- Statically guards against nonce desynchronization by halting the multi-hop sequence before broadcast upon any dry-run revert.
 
 ### 2.4 ERC-8004 Reputation Attestor (`src/lib/reputation/erc8004.ts`)
-- Interacts with the ERC-8004 ReputationRegistry on Base.
-- Upon receipt confirmation, calls `giveFeedback` to log an immutable proof tying the agent ID, execution ID, transaction hash, and execution latency.
+- Formulates deterministic ERC-8004 reputation feedback records.
+- Upon receipt confirmation, encodes an attestation payload tying the agent address, pathway ID, execution ID, transaction hashes, and execution latency into an ERC-8004 compliant RFC Base64 Data URI.
 
 ### 2.5 Provider Seam (`src/lib/wayfinder/provider.ts`)
 - Implements the interface `IWayfinderProvider`.

@@ -122,26 +122,32 @@ export class NyrvokKeeperHubClient {
 
       return res as unknown as KeeperHubSimulateResponse;
     } catch (err: unknown) {
-      if (err instanceof KeeperHubError && err.body && typeof err.body === "object") {
-        const body = err.body as Record<string, unknown>;
-        return {
-          success: false,
-          status: "simulated",
-          from: typeof body.from === "string" ? body.from : undefined,
-          to: typeof body.to === "string" ? body.to : String(params.contractAddress),
-          value: typeof body.value === "string" ? body.value : params.value,
-          gasEstimate: "0",
-          wouldRevert: true,
-          failureKind: typeof body.failureKind === "string" ? body.failureKind : "revert",
-          revertReason:
-            typeof body.revertReason === "string"
-              ? body.revertReason
-              : typeof body.error === "string"
-              ? body.error
-              : err.message,
-          error: typeof body.error === "string" ? body.error : err.message,
-          code: typeof body.code === "string" ? body.code : undefined,
-        };
+      if (err instanceof KeeperHubError) {
+        // Infrastructure, auth, and network errors (401, 403, 500+) are not on-chain simulation reverts
+        if (err.status === 401 || err.status === 403 || err.status >= 500) {
+          throw err;
+        }
+        if (err.body && typeof err.body === "object") {
+          const body = err.body as Record<string, unknown>;
+          return {
+            success: false,
+            status: "simulated",
+            from: typeof body.from === "string" ? body.from : undefined,
+            to: typeof body.to === "string" ? body.to : String(params.contractAddress),
+            value: typeof body.value === "string" ? body.value : params.value,
+            gasEstimate: "0",
+            wouldRevert: true,
+            failureKind: typeof body.failureKind === "string" ? body.failureKind : "revert",
+            revertReason:
+              typeof body.revertReason === "string"
+                ? body.revertReason
+                : typeof body.error === "string"
+                ? body.error
+                : err.message,
+            error: typeof body.error === "string" ? body.error : err.message,
+            code: typeof body.code === "string" ? body.code : undefined,
+          };
+        }
       }
       throw err;
     }
@@ -188,26 +194,32 @@ export class NyrvokKeeperHubClient {
       });
       return res;
     } catch (err: unknown) {
-      if (err instanceof KeeperHubError && err.body && typeof err.body === "object") {
-        const body = err.body as Record<string, unknown>;
-        return {
-          success: false,
-          status: "simulated",
-          from: typeof body.from === "string" ? body.from : undefined,
-          to: typeof body.to === "string" ? body.to : String(params.recipientAddress),
-          value: typeof body.value === "string" ? body.value : undefined,
-          gasEstimate: "0",
-          wouldRevert: true,
-          failureKind: typeof body.failureKind === "string" ? body.failureKind : "validation",
-          revertReason:
-            typeof body.revertReason === "string"
-              ? body.revertReason
-              : typeof body.error === "string"
-              ? body.error
-              : err.message,
-          error: typeof body.error === "string" ? body.error : err.message,
-          code: typeof body.code === "string" ? body.code : undefined,
-        };
+      if (err instanceof KeeperHubError) {
+        // Infrastructure, auth, and network errors (401, 403, 500+) are not on-chain simulation reverts
+        if (err.status === 401 || err.status === 403 || err.status >= 500) {
+          throw err;
+        }
+        if (err.body && typeof err.body === "object") {
+          const body = err.body as Record<string, unknown>;
+          return {
+            success: false,
+            status: "simulated",
+            from: typeof body.from === "string" ? body.from : undefined,
+            to: typeof body.to === "string" ? body.to : String(params.recipientAddress),
+            value: typeof body.value === "string" ? body.value : undefined,
+            gasEstimate: "0",
+            wouldRevert: true,
+            failureKind: typeof body.failureKind === "string" ? body.failureKind : "validation",
+            revertReason:
+              typeof body.revertReason === "string"
+                ? body.revertReason
+                : typeof body.error === "string"
+                ? body.error
+                : err.message,
+            error: typeof body.error === "string" ? body.error : err.message,
+            code: typeof body.code === "string" ? body.code : undefined,
+          };
+        }
       }
       throw err;
     }

@@ -97,6 +97,6 @@ export function verifyZeroGasStandDown(
     gasBurnedUsd: 0, // In simulation mode, zero gas is consumed on-chain
     preventedTransactions,
     refusalReason: summary.refusalReason || "Invariant failure",
-    noncePreserved: true,
+    noncePreserved: true, // Nonce unchanged as execution stood down before on-chain broadcast
   };
 }

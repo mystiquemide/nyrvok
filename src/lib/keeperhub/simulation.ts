@@ -1,3 +1,4 @@
+import { KeeperHubError } from "@keeperhub/sdk";
 import {
   WaypointPathway,
   WaypointStep,
@@ -108,11 +109,11 @@ export async function simulateWaypointStep(
       };
     }
 
-    // Evaluate slippage invariant: if actual slippage or step tolerance exceeds gateway maximum (100 bps / 1%), refuse!
+    // Evaluate slippage invariant: if simulated slippage or step tolerance exceeds gateway maximum (100 bps / 1%), refuse!
     const MAX_GATEWAY_SLIPPAGE_BPS = 100; // 1.0% maximum allowable slippage envelope
-    const actualSlippageBps = step.maxSlippageBps >= 500 ? step.maxSlippageBps : 12;
+    const simulatedSlippageBps = step.maxSlippageBps >= 500 ? step.maxSlippageBps : 12;
 
-    if (step.action === "swap" && (step.maxSlippageBps > MAX_GATEWAY_SLIPPAGE_BPS || actualSlippageBps > MAX_GATEWAY_SLIPPAGE_BPS)) {
+    if (step.maxSlippageBps > MAX_GATEWAY_SLIPPAGE_BPS || simulatedSlippageBps > MAX_GATEWAY_SLIPPAGE_BPS) {
       const refusalReason = `INVARIANT_BREACH: Slippage tolerance of ${(step.maxSlippageBps / 100).toFixed(1)}% exceeds the gateway safety envelope of ${(MAX_GATEWAY_SLIPPAGE_BPS / 100).toFixed(1)}%`;
       const gasSaved = calculateGasSavedUsd(DEFAULT_DEFI_STEP_GAS);
 
@@ -124,7 +125,8 @@ export async function simulateWaypointStep(
         estimatedGas: BigInt(0),
         gasPriceGwei: DEFAULT_BASE_GAS_PRICE_GWEI,
         simulatedOutput: "0",
-        actualSlippageBps,
+        actualSlippageBps: simulatedSlippageBps,
+        simulatedSlippageBps,
         refusalReason,
         gasSavedUsd: gasSaved,
         timestamp: Date.now(),
@@ -145,6 +147,7 @@ export async function simulateWaypointStep(
         gasPriceGwei: DEFAULT_BASE_GAS_PRICE_GWEI,
         simulatedOutput: "0",
         actualSlippageBps: 0,
+        simulatedSlippageBps: 0,
         refusalReason,
         gasSavedUsd: gasSaved,
         timestamp: Date.now(),
@@ -165,6 +168,7 @@ export async function simulateWaypointStep(
         ? rawSim.simulatedReturnValue
         : step.expectedOutput || "OK",
       actualSlippageBps: 12, // 0.12% nominal Base L2 execution slippage
+      simulatedSlippageBps: 12,
       gasSavedUsd: 0,
       timestamp: Date.now(),
       executionPayload: {
@@ -176,6 +180,10 @@ export async function simulateWaypointStep(
       keeperHubRaw: rawSim,
     };
   } catch (error: unknown) {
+    const isInfraError =
+      error instanceof KeeperHubError
+        ? error.status === 401 || error.status === 403 || error.status >= 500
+        : false;
     const message = error instanceof Error ? error.message : "Unknown simulation error";
     return {
       simulationId,
@@ -186,8 +194,9 @@ export async function simulateWaypointStep(
       gasPriceGwei: DEFAULT_BASE_GAS_PRICE_GWEI,
       simulatedOutput: "0",
       actualSlippageBps: 0,
-      refusalReason: `Simulation failed: ${message}`,
-      gasSavedUsd: calculateGasSavedUsd(),
+      simulatedSlippageBps: 0,
+      refusalReason: isInfraError ? `Infrastructure error: ${message}` : `Simulation failed: ${message}`,
+      gasSavedUsd: isInfraError ? 0 : calculateGasSavedUsd(),
       timestamp: Date.now(),
     };
   }

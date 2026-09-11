@@ -94,12 +94,12 @@ export const WaypointGraph: React.FC<WaypointGraphProps> = ({
             Autonomous Execution Sequence
           </span>
           <span className="text-[11px] font-mono text-[#7E8B9F]">
-            Turnkey Managed Sub-Org Nonce Guard
+            KeeperHub Managed Custody & Nonce Tracking
           </span>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-          {activePathway?.steps.map((step, idx) => {
+          {activePathway?.steps.map((step) => {
             const simResult = simulationResults?.find((r) => r.stepIndex === step.stepIndex);
             const isRefused = simResult?.status === "refused";
             const isPassed = simResult?.status === "passed";

@@ -1,4 +1,4 @@
-import { WaypointPathway, WaypointStep, ProtocolId } from "../types";
+import { WaypointPathway, ProtocolId } from "../types";
 
 // Standard Base Mainnet protocol contracts
 export const BASE_CONTRACTS = {
@@ -269,7 +269,7 @@ export const FAILING_SLIPPAGE_PATHWAY: WaypointPathway = {
   pathwayId: "pw_fail_slippage_004",
   strategyId: "failing_slippage_demo",
   network: "base-mainnet",
-  totalValueUsd: 500.0,
+  totalValueUsd: 50.0,
   timestamp: 1789150030000,
   metadata: {
     source: "wayfinder-paths-sdk/v2.1",
@@ -282,14 +282,14 @@ export const FAILING_SLIPPAGE_PATHWAY: WaypointPathway = {
       protocol: "aerodrome" as ProtocolId,
       action: "approve",
       targetAddress: BASE_CONTRACTS.USDC,
-      calldata: "0x095ea7b3000000000000000000000000cf77a3ba9a5ca399b7c97c748561549736add119000000000000000000000000000000000000000000000000000000001dcd6500",
+      calldata: "0x095ea7b3000000000000000000000000cf77a3ba9a5ca399b7c97c748561549736add1190000000000000000000000000000000000000000000000000000000002faf080",
       value: BigInt(0),
-      expectedOutput: "Approved 500 USDC",
+      expectedOutput: "Approved 50 USDC",
       maxSlippageBps: 0,
       label: "Approve Aerodrome Router",
       description: "Authorizes router spend for high-slippage swap",
       functionName: "approve",
-      functionArgs: [BASE_CONTRACTS.AERODROME_ROUTER, "500000000"],
+      functionArgs: [BASE_CONTRACTS.AERODROME_ROUTER, "50000000"],
       abi: ERC20_APPROVE_ABI,
     },
     {
@@ -297,7 +297,7 @@ export const FAILING_SLIPPAGE_PATHWAY: WaypointPathway = {
       protocol: "aerodrome" as ProtocolId,
       action: "swap",
       targetAddress: BASE_CONTRACTS.AERODROME_ROUTER,
-      calldata: "0x38ed1739000000000000000000000000000000000000000000000000000000001dcd6500",
+      calldata: "0x38ed17390000000000000000000000000000000000000000000000000000000002faf080",
       value: BigInt(0),
       expectedOutput: "0.208 WETH",
       maxSlippageBps: 500, // Injected 5.0% slippage spike
@@ -305,7 +305,7 @@ export const FAILING_SLIPPAGE_PATHWAY: WaypointPathway = {
       description: "Swap triggers pool imbalance exceeding safety envelope; simulation refuses before gas burn",
       functionName: "swapExactTokensForTokens",
       functionArgs: [
-        "500000000",
+        "50000000",
         "999999999999999999", // Unrealistic minimum out triggering EVM revert
         [
           {

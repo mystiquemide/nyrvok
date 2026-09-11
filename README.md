@@ -7,9 +7,9 @@ Wayfinder maps complex multi-hop routes across decentralized finance protocols l
 Nyrvok acts as an execution firewall:
 1. **Ingestion**: Ingests multi-hop DeFi pathway strategies mapped by Wayfinder AI.
 2. **Pre-Flight Invariant Simulation**: Runs sequential dry-runs through KeeperHub (`simulate: true`). If any step would revert or breach slippage limits (over 1.0%), the circuit breaker halts execution with **$0.00 gas burned**.
-3. **Turnkey Custody Execution**: Routes approved transaction bundles to Base with managed Turnkey custody, eliminating private key exposure.
+3. **KeeperHub Custody Execution**: Routes approved transaction bundles to Base with managed KeeperHub custody, eliminating private key exposure.
 4. **Viem L2 Confirmation**: Verifies block numbers and gas utilization directly against Base RPC nodes.
-5. **ERC-8004 Reputation Feedback**: Logs execution latency, gas usage, and performance scores (0 - 100) to the ERC-8004 Reputation Registry, building an on-chain verifiable trust history.
+5. **ERC-8004 Reputation Feedback**: Generates deterministic ERC-8004 reputation attestations with latency, gas usage, and performance scores (0 - 100) encoded as verifiable RFC Base64 Data URIs.
 
 ---
 
@@ -20,7 +20,7 @@ Nyrvok acts as an execution firewall:
   - **Main Track ($4,000)**: Best Integration into a Live Project (Wayfinder AI multi-hop DeFi router on Base)
   - **Bounty Track ($1,000)**: Best KeeperHub Feature (Standalone Wayfinder Protocol Plugin and Upstream PR)
 - **Live KeeperHub User**: `mide27145`
-- **Turnkey Custody Wallet**: [`0x05619d1a133623B322a8f366ea9594e4e586f26D`](https://sepolia.basescan.org/address/0x05619d1a133623B322a8f366ea9594e4e586f26D)
+- **KeeperHub Custody Wallet**: [`0x05619d1a133623B322a8f366ea9594e4e586f26D`](https://sepolia.basescan.org/address/0x05619d1a133623B322a8f366ea9594e4e586f26D)
 - **Target Networks**: Base Mainnet (8453), Base Sepolia (84532)
 
 ---
@@ -30,7 +30,7 @@ Nyrvok acts as an execution firewall:
 | Dimension | Value / Evidence | Status |
 | :--- | :--- | :--- |
 | **Live Base Sepolia Tx** | [`0x232b466f28e6363a149fb5ff5d347c9d3d812b9007f5e413d862eabb6bf5c878`](https://sepolia.basescan.org/tx/0x232b466f28e6363a149fb5ff5d347c9d3d812b9007f5e413d862eabb6bf5c878) | Confirmed (Block #46691697) |
-| **Turnkey Managed Custody** | `0x05619d1a133623B322a8f366ea9594e4e586f26D` | Active on Base Sepolia |
+| **KeeperHub Managed Custody** | `0x05619d1a133623B322a8f366ea9594e4e586f26D` | Active on Base Sepolia |
 | **Pre-Flight Invariant Simulation** | KeeperHub dry-run engine (`simulate: true`) | Verified across 4 strategies |
 | **Zero-Gas Stand-Down** | 5% slippage stress test halted before broadcast | $0.00 gas burned on-chain |
 | **ERC-8004 Reputation Score** | Score 100/100, Trust Score: 100.00% (10000 bps) | RFC Base64 Attestation Emitted |
@@ -114,7 +114,7 @@ BASE_SEPOLIA_RPC_URL=https://sepolia.base.org
 ```
 
 ### Running Tests
-Execute the complete test suite (33 tests across 7 test files):
+Execute the complete test suite (39 tests across 7 test files):
 ```bash
 pnpm test
 ```

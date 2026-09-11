@@ -17,7 +17,7 @@ export const ExecutionFeed: React.FC<ExecutionFeedProps> = ({ receipts, feedback
             Cryptographic Provenance
           </span>
           <h3 className="text-sm font-semibold text-[#F0F4FC]">
-            Live Base Mainnet Execution Proofs & ERC-8004 Attestations
+            Live Base Execution Proofs & ERC-8004 Attestations
           </h3>
         </div>
         <span className="text-[11px] font-mono px-2 py-0.5 rounded border border-[#1E2638] bg-[#0A0D14] text-[#7E8B9F]">
@@ -54,7 +54,9 @@ export const ExecutionFeed: React.FC<ExecutionFeedProps> = ({ receipts, feedback
                   <td className="py-2.5 text-[#00F0FF]">WP-0{(r.stepIndex ?? i) + 1}</td>
                   <td className="py-2.5 text-[#F0F4FC] uppercase">{r.protocol || "EVM"}</td>
                   <td className="py-2.5 text-[#7E8B9F]">
-                    {r.transactionHash.slice(0, 10)}...{r.transactionHash.slice(-8)}
+                    {r.transactionHash
+                      ? `${r.transactionHash.slice(0, 10)}...${r.transactionHash.slice(-8)}`
+                      : "No on-chain hash"}
                   </td>
                   <td className="py-2.5 text-[#F0F4FC]">{r.blockNumber ? r.blockNumber.toString() : "-"}</td>
                   <td className="py-2.5 text-[#7E8B9F]">{r.gasUsed ? r.gasUsed.toString() : "-"}</td>
@@ -79,14 +81,18 @@ export const ExecutionFeed: React.FC<ExecutionFeedProps> = ({ receipts, feedback
                     )}
                   </td>
                   <td className="py-2.5 text-right">
-                    <a
-                      href={r.explorerUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-[#00F0FF] hover:underline text-[11px]"
-                    >
-                      BaseScan ↗
-                    </a>
+                    {r.explorerUrl ? (
+                      <a
+                        href={r.explorerUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[#00F0FF] hover:underline text-[11px]"
+                      >
+                        BaseScan ↗
+                      </a>
+                    ) : (
+                      <span className="text-[#4B5568] text-[11px]">-</span>
+                    )}
                   </td>
                 </tr>
               ))}

@@ -32,6 +32,7 @@ export interface WaypointPathway {
   steps: WaypointStep[];
   totalValueUsd: number;
   timestamp: number;
+  idempotencyKey?: string;
   metadata?: {
     source: string;
     coordinator: string;
@@ -48,6 +49,7 @@ export interface SimulationResult {
   gasPriceGwei: number;
   simulatedOutput: string;
   actualSlippageBps: number;
+  simulatedSlippageBps?: number;
   refusalReason?: string;
   gasSavedUsd: number;
   timestamp: number;
@@ -65,14 +67,15 @@ export interface ExecutionReceipt {
   pathwayId: string;
   stepIndex?: number;
   protocol?: ProtocolId;
-  transactionHash: `0x${string}`;
+  transactionHash: `0x${string}` | null;
   blockNumber: bigint;
   gasUsed: bigint;
   effectiveGasPrice: bigint;
   status: "confirmed" | "failed";
-  explorerUrl: string;
+  explorerUrl: string | null;
   erc8004Logged: boolean;
   erc8004Score?: number;
+  failureReason?: string;
   timestamp: number;
 }
 
@@ -96,10 +99,18 @@ export interface AgentReputationSummary {
   agentAddress: `0x${string}`;
   totalExecutions: number;
   successfulExecutions: number;
-  averageScore: number;
-  trustScoreBps: number;
+  averageScore: number | null;
+  trustScoreBps: number | null;
+  rated: boolean;
   totalGasUsed: bigint;
   lastFeedbackTimestamp: number;
+}
+
+export interface IdempotencyRecord {
+  idempotencyKey: string;
+  pathwayId: string;
+  receipts: ExecutionReceipt[];
+  timestamp: number;
 }
 
 export interface TelemetryStats {
