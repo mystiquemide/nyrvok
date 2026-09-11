@@ -63,6 +63,8 @@ export interface SimulationResult {
 export interface ExecutionReceipt {
   executionId: string;
   pathwayId: string;
+  stepIndex?: number;
+  protocol?: ProtocolId;
   transactionHash: `0x${string}`;
   blockNumber: bigint;
   gasUsed: bigint;
