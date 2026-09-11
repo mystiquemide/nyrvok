@@ -13,6 +13,7 @@ import {
 } from "@/lib/types";
 import { PathwaySimulationSummary } from "@/lib/keeperhub/simulation";
 import { FullTelemetryPayload } from "@/lib/telemetry-store";
+import { injectSlippageFailure } from "@/lib/wayfinder/failure-fixture";
 
 export default function Home() {
   const [strategies, setStrategies] = useState<StrategyMeta[]>([]);
@@ -147,11 +148,39 @@ export default function Home() {
   };
 
   const handleInjectFailure = async () => {
-    await handleSelectStrategy("failing_slippage_demo");
-    // Trigger simulation immediately on the stress test fixture
-    setTimeout(() => {
-      handleRunSimulation();
-    }, 150);
+    if (!activePathway) return;
+
+    const faultyPathway = injectSlippageFailure(activePathway, 500);
+    setActivePathway(faultyPathway);
+    setSimulationResults(null);
+    setSimulationSummary(null);
+    setExecutionReceipts([]);
+    setStatusNotification("Injected 5% slippage into active pathway. Running pre-flight simulation...");
+
+    setIsSimulating(true);
+    try {
+      const res = await fetch("/api/waypoint/simulate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pathway: faultyPathway }),
+      });
+
+      const data = await res.json();
+      if (data.success && data.summary) {
+        setSimulationSummary(data.summary);
+        setSimulationResults(data.summary.results);
+        setStatusNotification(
+          `Pre-flight simulation refused: ${data.summary.refusalReason || "Invariant violation detected"}`
+        );
+      } else {
+        setStatusNotification(data.error || "Simulation error");
+      }
+      await fetchTelemetry();
+    } catch (err: unknown) {
+      setStatusNotification(err instanceof Error ? err.message : "Simulation error");
+    } finally {
+      setIsSimulating(false);
+    }
   };
 
   return (
