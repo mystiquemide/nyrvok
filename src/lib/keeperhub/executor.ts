@@ -14,6 +14,7 @@ import {
   getIdempotentExecution,
   recordIdempotentExecution,
 } from "../telemetry-store";
+import { stepIdempotencyKey } from "../canonical";
 
 export interface PathwayExecutionSummary {
   pathwayId: string;
@@ -86,7 +87,8 @@ export async function executeWaypointStep(
       effectiveGasPrice?: bigint;
       status: string;
     }>;
-  }
+  },
+  idempotencyKey?: string
 ): Promise<ExecutionReceipt> {
   const keeperClient = client || getKeeperHubClient();
   const keeperNetwork = network === "base-sepolia" ? "base-sepolia" : "base";
@@ -105,6 +107,7 @@ export async function executeWaypointStep(
       amount: step.amount,
       network: keeperNetwork,
       tokenAddress: step.tokenAddress,
+      idempotencyKey,
     });
   } else {
     const functionName = step.functionName || (step.action === "approve" ? "approve" : "execute");
@@ -117,6 +120,7 @@ export async function executeWaypointStep(
       functionArgs,
       abi: step.abi,
       value: step.value ? step.value.toString() : "0",
+      idempotencyKey,
     });
   }
 
@@ -284,7 +288,10 @@ export async function executeApprovedPathway(
         pathway.network,
         pathway.pathwayId,
         client,
-        publicClient
+        publicClient,
+        // Platform-level dedup: KeeperHub treats a repeated Idempotency-Key as
+        // the same work, covering retries across restarts and instances.
+        stepIdempotencyKey(pathway, step)
       );
       receipts.push(receipt);
       totalGasUsed += receipt.gasUsed;

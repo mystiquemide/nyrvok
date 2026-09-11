@@ -179,8 +179,7 @@ export const wayfinderProtocolPlugin: KeeperHubProtocolPlugin = {
         return logPathwayExecutionFeedback(
           input.receipts,
           input.pathway,
-          context?.agentAddress,
-          context?.client
+          context?.agentAddress
         );
       },
     },

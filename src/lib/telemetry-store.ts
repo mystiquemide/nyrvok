@@ -1,10 +1,12 @@
 import {
   TelemetryStats,
   SimulationResult,
+  WaypointPathway,
 } from "./types";
 import { PathwaySimulationSummary } from "./keeperhub/simulation";
 import { PathwayExecutionSummary } from "./keeperhub/executor";
 import { getAgentReputationSummary, getAllFeedbackRecords } from "./reputation/erc8004";
+import { pathwayContentHash } from "./canonical";
 
 export interface FullTelemetryPayload extends TelemetryStats {
   recentSimulations: PathwaySimulationSummary[];
@@ -18,7 +20,18 @@ const IDEMPOTENCY_TTL_MS = 24 * 60 * 60 * 1000;
 const idempotencyStore = new Map<string, { summary: PathwayExecutionSummary; timestamp: number }>();
 
 // Server-owned simulation provenance store (ADR-02 / REV-2)
-const simulationProvenanceStore = new Map<string, { results: SimulationResult[]; timestamp: number }>();
+// Each record binds the simulation verdict to a content hash of the exact
+// pathway that was dry-run, so a later execute call cannot swap step contents
+// under a previously simulated pathwayId.
+const simulationProvenanceStore = new Map<
+  string,
+  { results: SimulationResult[]; pathwayHash: string; timestamp: number }
+>();
+
+export interface SimulationProvenance {
+  results: SimulationResult[];
+  pathwayHash: string;
+}
 
 const defaultNetworkName =
   process.env.DEFAULT_NETWORK === "base-sepolia"
@@ -72,18 +85,19 @@ export function getIdempotentExecution(
 }
 
 export function recordSimulationProvenance(
-  pathwayId: string,
+  pathway: WaypointPathway,
   results: SimulationResult[]
 ): void {
-  simulationProvenanceStore.set(pathwayId, {
+  simulationProvenanceStore.set(pathway.pathwayId, {
     results,
+    pathwayHash: pathwayContentHash(pathway),
     timestamp: Date.now(),
   });
 }
 
 export function getSimulationProvenance(
   pathwayId: string
-): SimulationResult[] | null {
+): SimulationProvenance | null {
   const record = simulationProvenanceStore.get(pathwayId);
   if (!record) return null;
   // Provenance freshness window: 15 minutes
@@ -91,7 +105,7 @@ export function getSimulationProvenance(
     simulationProvenanceStore.delete(pathwayId);
     return null;
   }
-  return record.results;
+  return { results: record.results, pathwayHash: record.pathwayHash };
 }
 
 export function recordSimulationTelemetry(summary: PathwaySimulationSummary): void {
@@ -105,9 +119,6 @@ export function recordSimulationTelemetry(summary: PathwaySimulationSummary): vo
   state.recentSimulations.unshift(summary);
   if (state.recentSimulations.length > 20) {
     state.recentSimulations.pop();
-  }
-  if (summary.results) {
-    recordSimulationProvenance(summary.pathwayId, summary.results);
   }
 }
 

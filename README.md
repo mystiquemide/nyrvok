@@ -9,7 +9,7 @@ Nyrvok acts as an execution firewall:
 2. **Pre-Flight Invariant Simulation**: Runs sequential dry-runs through KeeperHub (`simulate: true`). If any step would revert or breach slippage limits (over 1.0%), the circuit breaker halts execution with **$0.00 gas burned**.
 3. **KeeperHub Custody Execution**: Routes approved transaction bundles to Base with managed KeeperHub custody, eliminating private key exposure.
 4. **Viem L2 Confirmation**: Verifies block numbers and gas utilization directly against Base RPC nodes.
-5. **ERC-8004 Reputation Feedback**: Generates deterministic ERC-8004 reputation attestations with latency, gas usage, and performance scores (0 - 100) encoded as verifiable RFC Base64 Data URIs.
+5. **ERC-8004 Reputation Feedback**: Generates deterministic ERC-8004 reputation attestations with latency, gas usage, and performance scores (0 - 100) encoded as self-verifying RFC Base64 Data URIs declaring the canonical Base Reputation Registry.
 
 ---
 
@@ -33,7 +33,7 @@ Nyrvok acts as an execution firewall:
 | **KeeperHub Managed Custody** | `0x05619d1a133623B322a8f366ea9594e4e586f26D` | Active on Base Sepolia |
 | **Pre-Flight Invariant Simulation** | KeeperHub dry-run engine (`simulate: true`) | Verified across 4 strategies |
 | **Zero-Gas Stand-Down** | 5% slippage stress test halted before broadcast | $0.00 gas burned on-chain |
-| **ERC-8004 Reputation Score** | Score 100/100, Trust Score: 100.00% (10000 bps) | RFC Base64 Attestation Emitted |
+| **ERC-8004 Reputation Score** | Score 100/100, Trust Score: 100.00% (10000 bps) | Off-chain RFC Base64 attestation emitted |
 
 ---
 
@@ -66,8 +66,8 @@ Nyrvok acts as an execution firewall:
        ┌───────────────┴───────────────┐
        ▼                               ▼
 ┌─────────────────────────────┐ ┌─────────────────────────────┐
-│     KeeperHub Execution     │ │     ERC-8004 Registry       │
-│  Turnkey Custody on Base    │ │  On-Chain Verifiable Trust  │
+│     KeeperHub Execution     │ │   ERC-8004 Attestation      │
+│  Turnkey Custody on Base    │ │  Off-Chain Data URI Record  │
 │  Viem Receipt Confirmation  │ │  Latency, Gas, & Score Data │
 └─────────────────────────────┘ └─────────────────────────────┘
 ```
@@ -113,8 +113,13 @@ BASE_RPC_URL=https://mainnet.base.org
 BASE_SEPOLIA_RPC_URL=https://sepolia.base.org
 ```
 
+Optional settings (see `.env.example` for details):
+- `WAYFINDER_API_BASE_URL`: point at a live Wayfinder coordinator. Without it, the app serves recorded pathway fixtures.
+- `DEFAULT_NETWORK=base-sepolia`: recommended for demos. Strategies default to Base Mainnet, where `Execute` spends real custody funds.
+- `NYRVOK_API_TOKEN`: bearer token required on `POST /api/waypoint/execute`. Set it on any deployed instance.
+
 ### Running Tests
-Execute the complete test suite (39 tests across 7 test files):
+Execute the complete test suite (42 tests across 7 test files):
 ```bash
 pnpm test
 ```
@@ -131,6 +136,19 @@ Start the local Next.js telemetry console:
 pnpm dev
 ```
 Open [http://localhost:3000](http://localhost:3000) to monitor live waypoints, trigger pre-flight dry-runs, run 5% slippage failure stress tests, and inspect confirmed BaseScan receipts.
+
+---
+
+## Execution Safety Model
+
+- **Provenance-bound execution**: `POST /api/waypoint/execute` only accepts a pathway that this server dry-ran itself within the last 15 minutes, verified by a SHA-256 hash of the pathway's executable content. Client-supplied simulation results are ignored, so forged "passed" proofs cannot unlock execution.
+- **Platform idempotency**: every step broadcasts with a deterministic KeeperHub `Idempotency-Key`, so retries across restarts reuse one broadcast instead of double-spending.
+- **Managed custody**: signing happens inside KeeperHub (Turnkey-secured) and is bounded by the account's policy engine and spending caps. Nyrvok never holds private keys.
+- **Access control**: set `NYRVOK_API_TOKEN` on any deployed instance so only authorized callers can trigger executions. The local dev flow is unaffected.
+
+## Data Provenance
+
+The dashboard defaults to `WayfinderFixtureProvider`, which serves recorded pathway vectors so the demo is reproducible offline. Setting `WAYFINDER_API_BASE_URL` switches to `WayfinderLiveCoordinatorProvider`, which queries a live coordinator and falls back to fixtures on failure. The safety properties (dry-run gate, provenance binding, idempotency, receipt verification) are identical in both modes because they operate on the pathway content itself.
 
 ---
 

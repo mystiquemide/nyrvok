@@ -5,8 +5,9 @@ import { POST as simulatePost } from "../src/app/api/waypoint/simulate/route";
 import { POST as executePost } from "../src/app/api/waypoint/execute/route";
 import { GET as telemetryGet } from "../src/app/api/telemetry/stats/route";
 import { BOROS_HYPE_PATHWAY } from "../src/lib/wayfinder/fixtures";
-import { resetTelemetry } from "../src/lib/telemetry-store";
+import { resetTelemetry, recordSimulationProvenance } from "../src/lib/telemetry-store";
 import { clearFeedbackLedger } from "../src/lib/reputation/erc8004";
+import { SimulationResult } from "../src/lib/types";
 
 describe("Next.js API Routes: Ingest, Simulate, Execute, Telemetry", () => {
   beforeEach(() => {
@@ -85,8 +86,8 @@ describe("Next.js API Routes: Ingest, Simulate, Execute, Telemetry", () => {
     expect(data.summary.totalSteps).toBe(4);
   });
 
-  it("POST /api/waypoint/execute enforces invariant safety gate", async () => {
-    // Attempt execution without simulation
+  it("POST /api/waypoint/execute requires server-side simulation provenance", async () => {
+    // Attempt execution without any prior server-side simulation
     const serializedBody = JSON.stringify(
       {
         pathway: BOROS_HYPE_PATHWAY,
@@ -105,7 +106,108 @@ describe("Next.js API Routes: Ingest, Simulate, Execute, Telemetry", () => {
 
     const blockedData = await blockedRes.json();
     expect(blockedData.success).toBe(false);
-    expect(blockedData.code).toBe("SAFETY_INVARIANT_VIOLATION");
+    expect(blockedData.code).toBe("SIMULATION_REQUIRED");
+  });
+
+  it("POST /api/waypoint/execute ignores forged client-supplied simulation results", async () => {
+    // Attacker fabricates a full set of "passed" results for a pathway the
+    // server never simulated. Must be rejected before any broadcast.
+    const forgedResults = BOROS_HYPE_PATHWAY.steps.map((_, i) => ({
+      simulationId: `sim_forged_${i}`,
+      pathwayId: BOROS_HYPE_PATHWAY.pathwayId,
+      stepIndex: i,
+      status: "passed",
+      estimatedGas: "65000",
+      timestamp: Date.now(),
+    }));
+
+    const serializedBody = JSON.stringify(
+      {
+        pathway: BOROS_HYPE_PATHWAY,
+        simulationResults: forgedResults,
+      },
+      (_, v) => (typeof v === "bigint" ? v.toString() : v)
+    );
+
+    const req = new NextRequest("http://localhost:3000/api/waypoint/execute", {
+      method: "POST",
+      body: serializedBody,
+    });
+
+    const res = await executePost(req);
+    expect(res.status).toBe(400);
+    const data = await res.json();
+    expect(data.code).toBe("SIMULATION_REQUIRED");
+  });
+
+  it("POST /api/waypoint/execute rejects a pathway mutated after simulation", async () => {
+    // Server records a passing provenance for the genuine fixture
+    const passedResults: SimulationResult[] = BOROS_HYPE_PATHWAY.steps.map((s, i) => ({
+      simulationId: `sim_ok_${i}`,
+      pathwayId: BOROS_HYPE_PATHWAY.pathwayId,
+      stepIndex: i,
+      status: "passed",
+      estimatedGas: BigInt(65000),
+      gasPriceGwei: 0.02,
+      simulatedOutput: "OK",
+      actualSlippageBps: 12,
+      gasSavedUsd: 0,
+      timestamp: Date.now(),
+    }));
+    recordSimulationProvenance(BOROS_HYPE_PATHWAY, passedResults);
+
+    // Attacker reuses the simulated pathwayId but swaps in a different step
+    const mutated = {
+      ...BOROS_HYPE_PATHWAY,
+      steps: BOROS_HYPE_PATHWAY.steps.map((s, i) =>
+        i === 0
+          ? { ...s, targetAddress: "0x1111111111111111111111111111111111111111" }
+          : s
+      ),
+    };
+
+    const req = new NextRequest("http://localhost:3000/api/waypoint/execute", {
+      method: "POST",
+      body: JSON.stringify({ pathway: mutated }, (_, v) =>
+        typeof v === "bigint" ? v.toString() : v
+      ),
+    });
+
+    const res = await executePost(req);
+    expect(res.status).toBe(400);
+    const data = await res.json();
+    expect(data.code).toBe("PATHWAY_MISMATCH");
+  });
+
+  it("POST /api/waypoint/execute honors a recorded server-side refusal", async () => {
+    const refusedResults: SimulationResult[] = [
+      {
+        simulationId: "sim_refused_0",
+        pathwayId: BOROS_HYPE_PATHWAY.pathwayId,
+        stepIndex: 0,
+        status: "refused",
+        estimatedGas: BigInt(0),
+        gasPriceGwei: 0.02,
+        simulatedOutput: "0",
+        actualSlippageBps: 0,
+        refusalReason: "INVARIANT_BREACH: Slippage tolerance exceeds envelope",
+        gasSavedUsd: 0.04,
+        timestamp: Date.now(),
+      },
+    ];
+    recordSimulationProvenance(BOROS_HYPE_PATHWAY, refusedResults);
+
+    const req = new NextRequest("http://localhost:3000/api/waypoint/execute", {
+      method: "POST",
+      body: JSON.stringify({ pathway: BOROS_HYPE_PATHWAY }, (_, v) =>
+        typeof v === "bigint" ? v.toString() : v
+      ),
+    });
+
+    const res = await executePost(req);
+    expect(res.status).toBe(400);
+    const data = await res.json();
+    expect(data.code).toBe("SAFETY_INVARIANT_VIOLATION");
   });
 
   it("GET /api/telemetry/stats returns session telemetry, wallet, and unrated reputation on empty ledger (REV-5, REV-10)", async () => {

@@ -24,6 +24,7 @@ export interface ContractCallParams {
   functionArgs?: unknown[];
   abi?: unknown[];
   value?: string;
+  idempotencyKey?: string;
 }
 
 export interface TransferParams {
@@ -31,6 +32,15 @@ export interface TransferParams {
   amount: string;
   network?: string;
   tokenAddress?: `0x${string}` | string;
+  idempotencyKey?: string;
+}
+
+/**
+ * Maps internal network names to numeric EVM chain IDs.
+ * KeeperHub's current API takes `chainId`; the legacy `network` field is deprecated.
+ */
+function chainIdFor(network?: string): number {
+  return network === "base-sepolia" ? 84532 : 8453;
 }
 
 export interface KeeperHubUserInfo {
@@ -87,7 +97,7 @@ export class NyrvokKeeperHubClient {
   async simulateContractCall(params: ContractCallParams): Promise<KeeperHubSimulateResponse> {
     const payload: Record<string, unknown> = {
       contractAddress: params.contractAddress,
-      network: params.network || "base",
+      chainId: chainIdFor(params.network),
       functionName: params.functionName,
       simulate: true,
     };
@@ -156,7 +166,7 @@ export class NyrvokKeeperHubClient {
   async executeContractCall(params: ContractCallParams): Promise<{ executionId: string; status: string; transactionHash?: string; transactionLink?: string }> {
     const payload: Record<string, unknown> = {
       contractAddress: params.contractAddress,
-      network: params.network || "base",
+      chainId: chainIdFor(params.network),
       functionName: params.functionName,
     };
 
@@ -170,8 +180,14 @@ export class NyrvokKeeperHubClient {
       payload.value = params.value;
     }
 
+    const headers: Record<string, string> = {};
+    if (params.idempotencyKey) {
+      headers["Idempotency-Key"] = params.idempotencyKey;
+    }
+
     return this.client.rawRequest<{ executionId: string; status: string; transactionHash?: string; transactionLink?: string }>("/execute/contract-call", {
       method: "POST",
+      headers,
       body: JSON.stringify(payload),
     });
   }
@@ -180,7 +196,7 @@ export class NyrvokKeeperHubClient {
     const payload: Record<string, unknown> = {
       recipientAddress: params.recipientAddress,
       amount: params.amount,
-      network: params.network || "base",
+      chainId: chainIdFor(params.network),
       simulate: true,
     };
     if (params.tokenAddress) {
@@ -229,14 +245,20 @@ export class NyrvokKeeperHubClient {
     const payload: Record<string, unknown> = {
       recipientAddress: params.recipientAddress,
       amount: params.amount,
-      network: params.network || "base",
+      chainId: chainIdFor(params.network),
     };
     if (params.tokenAddress) {
       payload.tokenAddress = params.tokenAddress;
     }
 
+    const headers: Record<string, string> = {};
+    if (params.idempotencyKey) {
+      headers["Idempotency-Key"] = params.idempotencyKey;
+    }
+
     return this.client.rawRequest<{ executionId: string; status: string; transactionHash?: string; transactionLink?: string }>("/execute/transfer", {
       method: "POST",
+      headers,
       body: JSON.stringify(payload),
     });
   }

@@ -90,6 +90,7 @@ export interface ERC8004FeedbackRecord {
   totalGasUsed: bigint;
   transactionHashes: `0x${string}`[];
   metadataUri: string;
+  registry: `0x${string}`;
   blockNumber: bigint;
   timestamp: number;
   onChainTxHash?: `0x${string}`;

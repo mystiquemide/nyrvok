@@ -4,10 +4,7 @@ import {
   IWayfinderProvider,
   StrategyMeta,
 } from "../types";
-import {
-  ALL_FIXTURES,
-  BOROS_HYPE_PATHWAY,
-} from "./fixtures";
+import { ALL_FIXTURES } from "./fixtures";
 
 export type { StrategyMeta };
 
@@ -19,7 +16,7 @@ export const STRATEGY_CATALOG: StrategyMeta[] = [
     protocols: ["aerodrome", "moonwell"],
     stepsCount: 4,
     defaultNetwork: "base-mainnet",
-    totalValueUsd: 250.0,
+    totalValueUsd: 50.0,
     riskTier: "medium",
   },
   {
@@ -75,7 +72,10 @@ export class WayfinderFixtureProvider implements IWayfinderProvider {
     strategyId: string,
     network: "base-mainnet" | "base-sepolia" = "base-mainnet"
   ): Promise<WaypointPathway> {
-    const template = ALL_FIXTURES[strategyId] || BOROS_HYPE_PATHWAY;
+    const template = ALL_FIXTURES[strategyId];
+    if (!template) {
+      throw new Error(`Strategy or pathway template not found: ${strategyId}`);
+    }
     const pathway = this.clonePathway(template);
     pathway.network = network;
     return pathway;
@@ -176,9 +176,17 @@ export class WayfinderLiveCoordinatorProvider implements IWayfinderProvider {
 
 let providerInstance: IWayfinderProvider | null = null;
 
+/**
+ * Returns the live coordinator when WAYFINDER_API_BASE_URL is configured,
+ * otherwise the recorded-fixture provider. The live provider itself falls
+ * back to fixtures when the coordinator is unreachable, so the UI never
+ * hard-fails on coordinator downtime.
+ */
 export function getWayfinderProvider(): IWayfinderProvider {
   if (!providerInstance) {
-    providerInstance = new WayfinderFixtureProvider();
+    providerInstance = process.env.WAYFINDER_API_BASE_URL
+      ? new WayfinderLiveCoordinatorProvider()
+      : new WayfinderFixtureProvider();
   }
   return providerInstance;
 }

@@ -146,7 +146,7 @@ export default function Home() {
           `Successfully landed ${data.summary.completedSteps} transaction(s) on ${netLabel} via KeeperHub.`
         );
       } else {
-        setStatusNotification(`Execution halted: ${data.error}`);
+        setStatusNotification(`Execution halted: ${data.error || "Execution failed"}`);
       }
       await fetchTelemetry();
     } catch (err: unknown) {
@@ -244,7 +244,7 @@ export default function Home() {
             <span>DoraHacks KeeperHub Agent Economy Hackathon</span>
           </div>
           <div className="flex items-center gap-4">
-            <span>Base Mainnet (8453)</span>
+            <span>{telemetry?.activeNetwork || "Base Mainnet (8453)"}</span>
             <a
               href="https://github.com/mystiquemide/nyrvok"
               target="_blank"

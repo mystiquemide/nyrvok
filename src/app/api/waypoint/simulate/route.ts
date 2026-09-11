@@ -3,7 +3,10 @@ import { simulateWaypointPathway } from "@/lib/keeperhub/simulation";
 import { getWayfinderProvider } from "@/lib/wayfinder/provider";
 import { WaypointPathway, WaypointStep } from "@/lib/types";
 import { jsonResponse } from "@/lib/json";
-import { recordSimulationTelemetry } from "@/lib/telemetry-store";
+import {
+  recordSimulationTelemetry,
+  recordSimulationProvenance,
+} from "@/lib/telemetry-store";
 
 export async function POST(request: NextRequest) {
   try {
@@ -32,8 +35,10 @@ export async function POST(request: NextRequest) {
 
     const summary = await simulateWaypointPathway(pathway);
 
-    // Track in session telemetry
+    // Track in session telemetry and bind server-side provenance to the
+    // exact pathway content that was dry-run.
     recordSimulationTelemetry(summary);
+    recordSimulationProvenance(pathway, summary.results);
 
     return jsonResponse({
       success: true,

@@ -109,7 +109,10 @@ export async function simulateWaypointStep(
       };
     }
 
-    // Evaluate slippage invariant: if simulated slippage or step tolerance exceeds gateway maximum (100 bps / 1%), refuse!
+    // Evaluate slippage invariant: refuse if the step's declared tolerance
+    // exceeds the gateway maximum (100 bps / 1%). KeeperHub dry-runs prove
+    // execution success/failure, not market slippage, so the enforced bound
+    // is the pathway's declared tolerance.
     const MAX_GATEWAY_SLIPPAGE_BPS = 100; // 1.0% maximum allowable slippage envelope
     const simulatedSlippageBps = step.maxSlippageBps >= 500 ? step.maxSlippageBps : 12;
 
@@ -167,7 +170,9 @@ export async function simulateWaypointStep(
       simulatedOutput: typeof rawSim.simulatedReturnValue === "string"
         ? rawSim.simulatedReturnValue
         : step.expectedOutput || "OK",
-      actualSlippageBps: 12, // 0.12% nominal Base L2 execution slippage
+      // Nominal estimate only: KeeperHub dry-runs do not measure market
+      // slippage. The real safety bound is the declared tolerance check above.
+      actualSlippageBps: 12,
       simulatedSlippageBps: 12,
       gasSavedUsd: 0,
       timestamp: Date.now(),
@@ -196,7 +201,9 @@ export async function simulateWaypointStep(
       actualSlippageBps: 0,
       simulatedSlippageBps: 0,
       refusalReason: isInfraError ? `Infrastructure error: ${message}` : `Simulation failed: ${message}`,
-      gasSavedUsd: isInfraError ? 0 : calculateGasSavedUsd(),
+      // No on-chain revert was proven for an unexplained error, so no
+      // avoided-loss credit is claimed.
+      gasSavedUsd: 0,
       timestamp: Date.now(),
     };
   }

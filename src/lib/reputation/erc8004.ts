@@ -5,40 +5,17 @@ import {
   ERC8004FeedbackRecord,
   AgentReputationSummary,
 } from "../types";
-import { NyrvokKeeperHubClient, getKeeperHubClient } from "../keeperhub/client";
 
+/**
+ * Canonical ERC-8004 Reputation Registry on Base.
+ * Attestations are emitted as self-verifying Base64 Data URIs that declare
+ * this registry as the standard they conform to. Broadcasting on-chain via
+ * `giveFeedback` requires a registered agentId; operators can point
+ * ERC8004_REGISTRY_ADDRESS at their deployment when they have one.
+ */
 export const DEFAULT_ERC8004_REGISTRY: `0x${string}` =
   (process.env.ERC8004_REGISTRY_ADDRESS as `0x${string}`) ||
-  "0x8004000000000000000000000000000000008004";
-
-export const ERC8004_REGISTRY_ABI = [
-  {
-    name: "logFeedback",
-    type: "function",
-    stateMutability: "nonpayable",
-    inputs: [
-      { name: "pathwayHash", type: "bytes32" },
-      { name: "executionId", type: "bytes32" },
-      { name: "score", type: "uint256" },
-      { name: "latencyMs", type: "uint256" },
-      { name: "gasUsed", type: "uint256" },
-      { name: "metadataUri", type: "string" },
-    ],
-    outputs: [{ name: "feedbackHash", type: "bytes32" }],
-  },
-  {
-    name: "getAgentReputation",
-    type: "function",
-    stateMutability: "view",
-    inputs: [{ name: "agentAddress", type: "address" }],
-    outputs: [
-      { name: "totalExecutions", type: "uint256" },
-      { name: "successfulExecutions", type: "uint256" },
-      { name: "averageScore", type: "uint256" },
-      { name: "trustScoreBps", type: "uint256" },
-    ],
-  },
-] as const;
+  "0x8004BAa17C55a88189AE136b182e5fdA19dE9b63";
 
 // In-memory feedback ledger persisting telemetry within the active session
 const feedbackLedger: ERC8004FeedbackRecord[] = [];
@@ -81,6 +58,7 @@ export function createMetadataUri(
     standard: "ERC-8004",
     version: "1.0",
     protocol: "nyrvok-wayfinder-gateway",
+    registry: DEFAULT_ERC8004_REGISTRY,
     pathwayId: pathway.pathwayId,
     strategyId: pathway.strategyId,
     network: pathway.network,
@@ -109,8 +87,7 @@ export function createMetadataUri(
 export async function logPathwayExecutionFeedback(
   receipts: ExecutionReceipt[],
   pathway: WaypointPathway,
-  agentAddress: `0x${string}` = "0x05619d1a133623b322a8f366ea9594e4e586f26d",
-  client?: NyrvokKeeperHubClient
+  agentAddress: `0x${string}` = "0x05619d1a133623b322a8f366ea9594e4e586f26d"
 ): Promise<ERC8004FeedbackRecord> {
   const startTime = receipts.length > 0 ? receipts[0].timestamp : Date.now();
   const latencyMs = Math.max(1, Date.now() - startTime);
@@ -123,7 +100,6 @@ export async function logPathwayExecutionFeedback(
 
   const pathwayHash = keccak256(stringToHex(pathway.pathwayId));
   const executionId = receipts.length > 0 ? receipts[0].executionId : `exec_${Date.now()}`;
-  const executionHash = keccak256(stringToHex(executionId));
   const metadataUri = createMetadataUri(pathway, receipts, score, latencyMs);
   const blockNumber = receipts.length > 0 ? receipts[receipts.length - 1].blockNumber : BigInt(0);
 
@@ -138,6 +114,7 @@ export async function logPathwayExecutionFeedback(
     totalGasUsed,
     transactionHashes: txHashes,
     metadataUri,
+    registry: DEFAULT_ERC8004_REGISTRY,
     blockNumber,
     timestamp: Date.now(),
   };
@@ -150,30 +127,6 @@ export async function logPathwayExecutionFeedback(
 
   // Persist to session ledger
   feedbackLedger.push(feedbackRecord);
-
-  // Attempt non-blocking broadcast simulation to ERC-8004 registry if client or key is configured
-  try {
-    const keeperClient = client || (process.env.KEEPERHUB_API_KEY ? getKeeperHubClient() : null);
-    if (keeperClient) {
-      const isSepolia = pathway.network === "base-sepolia";
-      await keeperClient.simulateContractCall({
-        contractAddress: DEFAULT_ERC8004_REGISTRY,
-        network: isSepolia ? "base-sepolia" : "base",
-        functionName: "logFeedback",
-        functionArgs: [
-          pathwayHash,
-          executionHash,
-          score.toString(),
-          latencyMs.toString(),
-          totalGasUsed.toString(),
-          metadataUri,
-        ],
-        abi: Array.from(ERC8004_REGISTRY_ABI),
-      });
-    }
-  } catch {
-    // Graceful offline fallback: ledger preserves record locally
-  }
 
   return feedbackRecord;
 }

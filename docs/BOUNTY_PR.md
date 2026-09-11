@@ -94,7 +94,7 @@ All actions have dedicated test suites in [`test/upstream-plugin.test.ts`](../te
 pnpm vitest run test/upstream-plugin.test.ts
 ```
 
-All 5 plugin unit tests and 39 repository-wide tests across 7 test files pass with 0 errors.
+All 5 plugin unit tests and 42 repository-wide tests across 7 test files pass with 0 errors.
 
 ---
 

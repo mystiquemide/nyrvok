@@ -120,12 +120,14 @@ async function main() {
   );
 
   const reputation = getAgentReputationSummary("0x05619d1a133623B322a8f366ea9594e4e586f26D");
-  console.log(`  - ERC-8004 Schema Registry: ${DEFAULT_ERC8004_REGISTRY}`);
-  console.log(`  - Attestation ID       : ${loggedRecord.feedbackId}`);
+  console.log(`  - ERC-8004 Reputation Registry (Base): ${DEFAULT_ERC8004_REGISTRY}`);
+  console.log(`  - Attestation ID       : ${loggedRecord.feedbackId} (off-chain Data URI record)`);
   console.log(`  - Pathway Hash         : ${loggedRecord.pathwayHash}`);
   console.log(`  - Performance Score    : ${loggedRecord.score}/100`);
-  const trustBps = reputation.trustScoreBps ?? 10000;
-  console.log(`  - Agent Trust Score    : ${(trustBps / 100).toFixed(2)}% (${trustBps} bps)`);
+  const trustLabel = reputation.trustScoreBps !== null
+    ? `${(reputation.trustScoreBps / 100).toFixed(2)}% (${reputation.trustScoreBps} bps)`
+    : "UNRATED (no executions logged)";
+  console.log(`  - Agent Trust Score    : ${trustLabel}`);
   console.log(`  - Metadata Data URI    : ${loggedRecord.metadataUri.slice(0, 50)}...`);
 
   const durationSec = ((Date.now() - startTime) / 1000).toFixed(2);

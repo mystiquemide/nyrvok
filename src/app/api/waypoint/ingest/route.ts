@@ -9,7 +9,10 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const strategyId = searchParams.get("strategyId") || undefined;
     const pathwayId = searchParams.get("pathwayId") || undefined;
-    const network = (searchParams.get("network") as "base-mainnet" | "base-sepolia") || "base-mainnet";
+    const defaultNetwork =
+      process.env.DEFAULT_NETWORK === "base-sepolia" ? "base-sepolia" : "base-mainnet";
+    const network =
+      (searchParams.get("network") as "base-mainnet" | "base-sepolia") || defaultNetwork;
 
     const strategies = await provider.listAvailableStrategies();
 
@@ -41,6 +44,20 @@ export async function POST(request: NextRequest) {
           success: false,
           error: "Invalid pathway payload. Must contain 'pathwayId' and 'steps' array.",
         },
+        { status: 400 }
+      );
+    }
+
+    if (typeof body.pathwayId !== "string" || body.pathwayId.length > 128) {
+      return jsonResponse(
+        { success: false, error: "Invalid pathwayId: must be a string of 128 characters or fewer" },
+        { status: 400 }
+      );
+    }
+
+    if (body.steps.length === 0 || body.steps.length > 32) {
+      return jsonResponse(
+        { success: false, error: "Invalid steps: a pathway must contain between 1 and 32 steps" },
         { status: 400 }
       );
     }
