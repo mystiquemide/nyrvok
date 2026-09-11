@@ -30,6 +30,7 @@ Nyrvok acts as an execution firewall:
 | Dimension | Value / Evidence | Status |
 | :--- | :--- | :--- |
 | **Live Base Sepolia Tx** | [`0x232b466f28e6363a149fb5ff5d347c9d3d812b9007f5e413d862eabb6bf5c878`](https://sepolia.basescan.org/tx/0x232b466f28e6363a149fb5ff5d347c9d3d812b9007f5e413d862eabb6bf5c878) | Confirmed (Block #46691697) |
+| **Live Pipeline E2E Tx** | [`0xda4c421d433e27404b74c608b3f85cefe13d0dc28ebe4f747de3544007e5cb7d`](https://base-sepolia.blockscout.com/tx/0xda4c421d433e27404b74c608b3f85cefe13d0dc28ebe4f747de3544007e5cb7d) | Confirmed (Block #46695903) — full ingest → simulate → execute pipeline |
 | **KeeperHub Managed Custody** | `0x05619d1a133623B322a8f366ea9594e4e586f26D` | Active on Base Sepolia |
 | **Pre-Flight Invariant Simulation** | KeeperHub dry-run engine (`simulate: true`) | Verified across 4 strategies |
 | **Zero-Gas Stand-Down** | 5% slippage stress test halted before broadcast | $0.00 gas burned on-chain |
