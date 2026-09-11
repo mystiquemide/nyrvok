@@ -84,7 +84,19 @@ export interface TelemetryStats {
   walletAddress: `0x${string}`;
 }
 
+export interface StrategyMeta {
+  id: string;
+  name: string;
+  description: string;
+  protocols: ProtocolId[];
+  stepsCount: number;
+  defaultNetwork: string;
+  totalValueUsd: number;
+  riskTier: "low" | "medium" | "high" | "stress-test";
+}
+
 export interface IWayfinderProvider {
   getPathway(pathwayId?: string): Promise<WaypointPathway>;
-  listAvailableStrategies(): Promise<Array<{ id: string; name: string; protocols: ProtocolId[] }>>;
+  listAvailableStrategies(): Promise<StrategyMeta[]>;
+  getStrategyPathway(strategyId: string, network?: "base-mainnet" | "base-sepolia"): Promise<WaypointPathway>;
 }
